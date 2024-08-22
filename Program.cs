@@ -2,6 +2,7 @@ using System.Text;
 using System.Threading.RateLimiting;
 using AspNetCoreRateLimit;
 using Hangfire;
+using Hangfire.Dashboard;
 using Hangfire.SqlServer;
 using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -218,8 +219,12 @@ app.MapHealthChecks(
     }
 );
 
+
 // Configure Hangfire dashboard
-//app.UseHangfireDashboard();
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new HangfireAuthorizationFilter() }
+});
 
 
 // Configure the HTTP request pipeline.
@@ -288,4 +293,15 @@ catch (Exception ex)
 finally
 {
     Log.CloseAndFlush();
+}
+
+// Hangfire dashboard authorization filter
+public class HangfireAuthorizationFilter : IDashboardAuthorizationFilter
+{
+    public bool Authorize(DashboardContext context)
+    {
+        // In development, allow all access to the Hangfire dashboard
+        // In production, you should implement proper authorization here
+        return true;
+    }
 }
