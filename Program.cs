@@ -19,6 +19,7 @@ using Microsoft.OpenApi.Models;
 using Serilog;
 using starterapi;
 using starterapi.Filters;
+using starterapi.Middleware;
 using starterapi.Repositories;
 using starterapi.Services;
 
@@ -53,6 +54,8 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 
 builder.Host.UseSerilog();
+
+
 
 // Add health checks
 builder
@@ -131,9 +134,18 @@ builder.Services.AddSwaggerGen(c =>
     );
 });
 builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
-);
+// builder.Services.AddDbContext<ApplicationDbContext>(options =>
+//     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+// );
+
+// Register DbContextFactory
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Register ApplicationDbContext
+builder.Services.AddScoped<ApplicationDbContext>(p => 
+    p.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext());
+
 
 // Add the processing server as IHostedService
 builder.Services.AddHangfireServer();
@@ -145,6 +157,7 @@ builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IEmailVerificationService, EmailVerificationService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
 // Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
@@ -321,6 +334,7 @@ if (app.Environment.IsDevelopment())
         }
     });
 }
+
 
 app.UseHttpsRedirection();
 

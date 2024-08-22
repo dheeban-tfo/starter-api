@@ -19,17 +19,17 @@ public class PermissionRequirement : IAuthorizationRequirement
 
 public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
 {
-    private readonly ApplicationDbContext _context;
+     private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<PermissionHandler> _logger;
 
     public PermissionHandler(
-        ApplicationDbContext context,
+        IDbContextFactory<ApplicationDbContext> contextFactory,
         IHttpContextAccessor httpContextAccessor,
         ILogger<PermissionHandler> logger
     )
     {
-        _context = context;
+       _contextFactory = contextFactory;
         _httpContextAccessor = httpContextAccessor;
         _logger = logger;
     }
@@ -107,14 +107,16 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
             return;
         }
 
-        var userRoles = await _context.UserRoles
+         using var dbContext = _contextFactory.CreateDbContext();
+
+        var userRoles = await dbContext.UserRoles
             .Where(ur => ur.UserId == int.Parse(userId))
             .Select(ur => ur.RoleId)
             .ToListAsync();
 
         _logger.LogInformation($"User roles: {string.Join(", ", userRoles)}");
 
-        var hasPermission = await _context.RoleModulePermissions
+        var hasPermission = await dbContext.RoleModulePermissions
             .AnyAsync(rmp => 
                 userRoles.Contains(rmp.RoleId) && 
                 rmp.Module.Name == moduleAttribute.Name && 
