@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is an ASP.NET Core Web API that implements a role-based access control (RBAC) system. It provides a secure, scalable, and maintainable foundation for building enterprise-level APIs.
+Starter API is a robust, scalable ASP.NET Core Web API project that implements a role-based access control (RBAC) system. It provides a secure foundation for building enterprise-level APIs with features such as authentication, authorization, audit logging, and health monitoring.
 
 ## Features
 
@@ -10,17 +10,19 @@ This project is an ASP.NET Core Web API that implements a role-based access cont
 - **Authorization**: Custom role-based access control (RBAC) system.
 - **User Management**: CRUD operations for user accounts.
 - **Role Management**: Create roles and assign permissions.
+- **Audit Logging**: Comprehensive logging of user activities and system changes.
+- **Health Checks**: Endpoints to monitor the health of the API and its dependencies.
 - **API Versioning**: Support for multiple API versions.
-- **Rate Limiting**: Protect the API from abuse and ensure fair usage.
-- **Logging**: Advanced structured logging using Serilog.
-- **Database**: Entity Framework Core with SQL Server.
-- **Swagger Documentation**: API documentation and testing interface.
+- **Swagger Documentation**: Interactive API documentation and testing interface.
+- **Entity Framework Core**: ORM for database operations with SQL Server.
+- **Password Reset**: Secure password reset functionality with email notifications.
+- **Error Handling**: Global exception handling and consistent error responses.
 
 ## Prerequisites
 
 - .NET 7.0 SDK or later
 - SQL Server
-- (Optional) Redis for distributed caching
+- SMTP server for email notifications (e.g., SendGrid, Mailjet)
 
 ## Setup
 
@@ -32,17 +34,19 @@ This project is an ASP.NET Core Web API that implements a role-based access cont
 
 2. Update the connection string in `appsettings.json` to point to your SQL Server instance.
 
-3. Apply database migrations:
+3. Update the email service configuration in `appsettings.json` with your SMTP server details.
+
+4. Apply database migrations:
    ```
    dotnet ef database update
    ```
 
-4. Run the application:
+5. Run the application:
    ```
    dotnet run
    ```
 
-5. Access Swagger UI at `https://localhost:5001/swagger` (the port might be different on your machine).
+6. Access Swagger UI at `https://localhost:5001/swagger` (the port might be different on your machine).
 
 ## Project Structure
 
@@ -50,6 +54,7 @@ This project is an ASP.NET Core Web API that implements a role-based access cont
 - `Models/`: Data models and DTOs
 - `Services/`: Business logic and data access
 - `Middleware/`: Custom middleware components
+- `Filters/`: Action filters for cross-cutting concerns
 - `Migrations/`: Database migrations
 
 ## Key Components
@@ -62,26 +67,55 @@ JWT-based authentication is implemented. Users can obtain a token by sending the
 
 Custom RBAC is implemented using policy-based authorization. Permissions are defined at the action level using the `[Permission]` attribute.
 
-### Rate Limiting
+### Audit Logging
 
-Basic rate limiting is implemented using ASP.NET Core's built-in rate limiting middleware. It's configured in `Program.cs`.
+The system automatically logs all database changes. The `AuditLogService` provides methods to query the audit logs.
 
-### Logging
+### Health Checks
 
-Serilog is used for structured logging. Logs are written to both console and file. The `RequestLoggingMiddleware` logs details of each HTTP request.
+Health check endpoints (`/health`, `/health/ready`, `/health/live`) are available to monitor the status of the API and its dependencies.
+
+## API Versioning
+
+The API supports versioning. Different versions of the API can be accessed by including the version in the URL, e.g., `/api/v1/users` or `/api/v2/users`.
 
 ## Configuration
 
 Key configuration options are available in `appsettings.json`:
 
 - `ConnectionStrings`: Database connection string
-- `JwtSettings`: JWT token configuration
-- `Serilog`: Logging configuration
-- `ClientRateLimiting`: Rate limiting rules
+- `Jwt`: JWT token configuration
+- `Mailjet`: Email service configuration
+- `Logging`: Logging configuration
 
-## API Versioning
+## Development
 
-The API supports versioning. Different versions of the API can be accessed by including the version in the URL, e.g., `/api/v1/users` or `/api/v2/users`.
+To run the project in development mode:
+
+```
+dotnet run --environment Development
+```
+
+This will enable additional features like detailed error messages and Swagger UI.
+
+## Testing
+
+To run the unit tests:
+
+```
+dotnet test
+```
+
+## Deployment
+
+For production deployment:
+
+1. Update `appsettings.Production.json` with production-specific settings.
+2. Publish the application:
+   ```
+   dotnet publish -c Release
+   ```
+3. Deploy the published files to your hosting environment.
 
 ## Contributing
 
@@ -91,38 +125,10 @@ Please read `CONTRIBUTING.md` for details on our code of conduct and the process
 
 This project is licensed under the MIT License - see the `LICENSE.md` file for details.
 
+## Acknowledgments
 
-Based on the Swagger documentation you've provided, you have indeed implemented the core functionality for user and role management. Let's break down what you can do and identify any potential gaps:
-
-1. Create and manage users:
-   - Create user: POST /api/v1/User
-   - Get all users: GET /api/v1/User
-   - Get user by ID: GET /api/v1/User/{id}
-   - Update user: PUT /api/v1/User/{id}
-   - Deactivate user: PATCH /api/v1/User/{id}/deactivate
-
-2. Login:
-   - Login: POST /api/Auth/login
-
-3. Create and manage roles:
-   - Create role: POST /api/RoleManagement/CreateRole
-   - Get all roles: GET /api/RoleManagement/GetRoles
-   - Get role by ID: GET /api/RoleManagement/GetRole/{roleId}
-
-4. Add users to the role:
-   - Assign role to user: POST /api/RoleManagement/AssignRoleToUser
-   - Remove role from user: DELETE /api/RoleManagement/RemoveRoleFromUser
-
-5. Edit permissions under each role:
-   - Assign permission to role: POST /api/RoleManagement/AssignPermissionToRole
-   - Remove permission from role: DELETE /api/RoleManagement/RemovePermissionFromRole
-
-6. Get user profile:
-   - Get user profile: GET /api/Profile
-
-Additional functionality available:
-   - Weather Forecast: GET /WeatherForecast (This seems to be a sample endpoint and may not be relevant to your core functionality)
-
+- ASP.NET Core team for the excellent framework
+- All contributors who have helped shape this project
 What you've implemented covers the basic requirements for user and role management with permissions. However, there are a few things that might be missing or could be improved:
 
 1. Password reset functionality: There's no endpoint for users to reset their passwords.
