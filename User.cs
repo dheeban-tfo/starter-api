@@ -30,4 +30,7 @@ public class User
     public bool EmailVerified { get; set; } = false;
     public string EmailVerificationToken { get; set; }
     public DateTime? EmailVerificationTokenExpires { get; set; }
+
+     public string RefreshToken { get; set; }
+    public DateTime RefreshTokenExpiryTime { get; set; }
 }

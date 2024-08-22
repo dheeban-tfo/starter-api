@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BCrypt.Net;
 using starterapi.Services;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace starterapi;
 
@@ -45,7 +47,13 @@ public class AuthController : ControllerBase
             }
 
             var token = _jwtService.GenerateToken(user);
-            return Ok(new { Token = token });
+            var refreshToken = _jwtService.GenerateRefreshToken();
+
+            user.RefreshToken = refreshToken;
+            user.RefreshTokenExpiryTime = DateTime.Now.AddDays(7);
+            await _userRepository.UpdateUserAsync(user);
+
+            return Ok(new { Token = token, RefreshToken = refreshToken });
         }
         catch (Exception ex)
         {
@@ -81,9 +89,67 @@ public class AuthController : ControllerBase
             return StatusCode(500, new { message = "An error occurred. Please try again later." });
         }
     }
+
+    [HttpPost("refresh-token")]
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest refreshRequest)
+    {
+        if (refreshRequest is null)
+        {
+            return BadRequest("Invalid client request");
+        }
+
+        string accessToken = refreshRequest.AccessToken;
+        string refreshToken = refreshRequest.RefreshToken;
+
+        var principal = _jwtService.GetPrincipalFromExpiredToken(accessToken);
+        if (principal == null)
+        {
+            return BadRequest("Invalid access token or refresh token");
+        }
+
+        string userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        var user = await _userRepository.GetUserByIdAsync(int.Parse(userId));
+
+        if (user == null || user.RefreshToken != refreshToken || user.RefreshTokenExpiryTime <= DateTime.Now)
+        {
+            return BadRequest("Invalid access token or refresh token");
+        }
+
+        var newAccessToken = _jwtService.GenerateToken(user);
+        var newRefreshToken = _jwtService.GenerateRefreshToken();
+
+        user.RefreshToken = newRefreshToken;
+        await _userRepository.UpdateUserAsync(user);
+
+        return new ObjectResult(new
+        {
+            accessToken = newAccessToken,
+            refreshToken = newRefreshToken
+        });
+    }
+
+    [HttpPost("revoke/{userId}")]
+    [Authorize]
+    public async Task<IActionResult> Revoke(int userId)
+    {
+        var user = await _userRepository.GetUserByIdAsync(userId);
+        if (user == null) return BadRequest("Invalid user id");
+
+        user.RefreshToken = null;
+        await _userRepository.UpdateUserAsync(user);
+
+        return NoContent();
+    }
 }
 
 public class ResendVerificationRequest
 {
     public string Email { get; set; }
+}
+
+public class RefreshTokenRequest
+{
+    public string AccessToken { get; set; }
+    public string RefreshToken { get; set; }
 }
