@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BCrypt.Net;
+using starterapi.Services;
 
 namespace starterapi;
 
@@ -10,12 +11,18 @@ public class AuthController : ControllerBase
     private readonly IUserRepository _userRepository;
     private readonly IJwtService _jwtService;
     private readonly ILogger<AuthController> _logger;
+    private readonly IEmailVerificationService _emailVerificationService;
 
-    public AuthController(IUserRepository userRepository, IJwtService jwtService, ILogger<AuthController> logger)
+    public AuthController(
+        IUserRepository userRepository, 
+        IJwtService jwtService, 
+        ILogger<AuthController> logger,
+        IEmailVerificationService emailVerificationService)
     {
         _userRepository = userRepository;
         _jwtService = jwtService;
         _logger = logger;
+        _emailVerificationService = emailVerificationService;
     }
 
     [HttpPost("login")]
@@ -30,6 +37,13 @@ public class AuthController : ControllerBase
                 return Unauthorized(new { message = "Invalid email or password" });
             }
 
+            if (!user.EmailVerified)
+            {
+                // Generate a new verification token and send a new verification email
+                await _emailVerificationService.GenerateVerificationTokenAsync(user);
+                return Unauthorized(new { message = "Email not verified. A new verification email has been sent." });
+            }
+
             var token = _jwtService.GenerateToken(user);
             return Ok(new { Token = token });
         }
@@ -39,4 +53,37 @@ public class AuthController : ControllerBase
             return StatusCode(500, new { message = "An error occurred during login. Please try again later." });
         }
     }
+
+    [HttpPost("resend-verification")]
+    public async Task<IActionResult> ResendVerification([FromBody] ResendVerificationRequest request)
+    {
+        try
+        {
+            var user = await _userRepository.GetUserByEmailAsync(request.Email);
+
+            if (user == null)
+            {
+                // To prevent email enumeration, we'll return a success message even if the email doesn't exist
+                return Ok(new { message = "If the email exists in our system, a new verification email has been sent." });
+            }
+
+            if (user.EmailVerified)
+            {
+                return BadRequest(new { message = "Email is already verified." });
+            }
+
+            await _emailVerificationService.GenerateVerificationTokenAsync(user);
+            return Ok(new { message = "A new verification email has been sent." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while resending verification email");
+            return StatusCode(500, new { message = "An error occurred. Please try again later." });
+        }
+    }
+}
+
+public class ResendVerificationRequest
+{
+    public string Email { get; set; }
 }

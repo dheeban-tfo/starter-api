@@ -15,7 +15,7 @@ public class User
 
     [Searchable]
     public string Email { get; set; }
-    public string PasswordHash { get; set; } // Store hashed passwords
+    public string PasswordHash { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
@@ -23,8 +23,11 @@ public class User
     [JsonIgnore]
     public ICollection<UserRole> UserRoles { get; set; }
 
-     // New fields for password reset
     public string PasswordResetToken { get; set; }
     public DateTime? PasswordResetTokenExpires { get; set; }
-}
 
+    // New fields for email verification
+    public bool EmailVerified { get; set; } = false;
+    public string EmailVerificationToken { get; set; }
+    public DateTime? EmailVerificationTokenExpires { get; set; }
+}

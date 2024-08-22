@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using starterapi.Services;
 
 namespace starterapi;
 
@@ -13,18 +14,20 @@ public class UserController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
     private readonly ApplicationDbContext _context;
-
     private readonly ILogger<UserController> _logger;
+    private readonly IEmailVerificationService _emailVerificationService;
 
     public UserController(
         IUserRepository userRepository,
         ApplicationDbContext context,
-        ILogger<UserController> logger
+        ILogger<UserController> logger,
+        IEmailVerificationService emailVerificationService
     )
     {
         _userRepository = userRepository;
         _context = context;
         _logger = logger;
+        _emailVerificationService = emailVerificationService;
     }
 
     [Permission("View")]

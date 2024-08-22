@@ -9,6 +9,7 @@ namespace starterapi.Services;
 public interface IEmailService
 {
     void EnqueuePasswordResetEmail(string email, string token);
+    Task SendEmailAsync(string email, string subject, string body);
 }
 
 public class EmailService : IEmailService
@@ -26,6 +27,11 @@ public class EmailService : IEmailService
     }
 
     public async Task SendPasswordResetEmailAsync(string email, string token)
+    {
+        await SendEmailAsync(email, "Password Reset Request", $"Your password reset token is: {token}");
+    }
+
+    public async Task SendEmailAsync(string email, string subject, string body)
     {
         var client = new MailjetClient(
             _configuration["Mailjet:ApiKey"],
@@ -48,9 +54,9 @@ public class EmailService : IEmailService
                         {"Name", "User"}
                     }
                 }},
-                {"Subject", "Password Reset Request"},
-                {"TextPart", $"Your password reset token is: {token}"},
-                {"HTMLPart", $"<h3>Password Reset</h3><p>Your password reset token is: <strong>{token}</strong></p>"}
+                {"Subject", subject},
+                {"TextPart", body},
+                {"HTMLPart", $"<h3>{subject}</h3><p>{body}</p>"}
             }
         });
 
