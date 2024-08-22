@@ -1,4 +1,6 @@
-﻿namespace starterapi;
+﻿using starterapi.Models;
+
+namespace starterapi;
 
 public interface IUserRepository
 {
@@ -8,4 +10,5 @@ public interface IUserRepository
     Task UpdateUserAsync(User user);
     Task DeactivateUserAsync(int id);
     Task<User> GetUserByEmailAsync(string email); 
+    Task<PagedResult<User>> GetUsersAsync(QueryParameters queryParameters);
 }

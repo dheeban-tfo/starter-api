@@ -1,4 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using starterapi.Models;
+using starterapi.Repositories;
 
 namespace starterapi;
 
@@ -48,5 +50,32 @@ public class UserRepository : IUserRepository
     public async Task<User> GetUserByEmailAsync(string email)
     {
         return await _context.Users.SingleOrDefaultAsync(u => u.Email == email) ?? throw new Exception("User not found.");
+    }
+
+    public async Task<PagedResult<User>> GetUsersAsync(QueryParameters queryParameters)
+    {
+         IQueryable<User> query = _context.Users;
+
+        if (!string.IsNullOrEmpty(queryParameters.SearchTerm))
+        {
+            query = query.ApplySearch(queryParameters.SearchTerm, "FirstName", "LastName", "Email");
+        }
+
+        query = query.ApplySort(queryParameters.SortBy, queryParameters.SortOrder);
+
+        var totalItems = await query.CountAsync();
+
+        var items = await query
+            .Skip((queryParameters.PageNumber - 1) * queryParameters.PageSize)
+            .Take(queryParameters.PageSize)
+            .ToListAsync();
+
+        return new PagedResult<User>
+        {
+            Items = items,
+            TotalItems = totalItems,
+            PageNumber = queryParameters.PageNumber,
+            PageSize = queryParameters.PageSize
+        };
     }
 }

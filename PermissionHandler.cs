@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,25 +21,75 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
 {
     private readonly ApplicationDbContext _context;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ILogger<PermissionHandler> _logger;
 
-    public PermissionHandler(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
+    public PermissionHandler(
+        ApplicationDbContext context,
+        IHttpContextAccessor httpContextAccessor,
+        ILogger<PermissionHandler> logger
+    )
     {
         _context = context;
         _httpContextAccessor = httpContextAccessor;
+        _logger = logger;
     }
 
-    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, PermissionRequirement requirement)
+    protected override async Task HandleRequirementAsync(
+        AuthorizationHandlerContext context,
+        PermissionRequirement requirement
+    )
     {
-        if (context.User.Identity == null || !context.User.Identity.IsAuthenticated)
+         _logger.LogInformation("Starting permission check");
+
+         if (context.User.Identity == null || !context.User.Identity.IsAuthenticated)
         {
-            context.Fail();
+            _logger.LogWarning("User is not authenticated");
             return;
         }
 
-        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (userId == null)
+        _logger.LogInformation($"User is authenticated: {context.User.Identity.IsAuthenticated}");
+        _logger.LogInformation($"Number of claims: {context.User.Claims.Count()}");
+
+        // Log the raw token
+        var rawToken = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
+        _logger.LogInformation($"Raw token: {rawToken}");
+
+        // Manually decode the token
+        if (!string.IsNullOrEmpty(rawToken))
         {
-            context.Fail();
+            var handler = new JwtSecurityTokenHandler();
+            var jsonToken = handler.ReadToken(rawToken) as JwtSecurityToken;
+
+            if (jsonToken != null)
+            {
+                _logger.LogInformation("Manually decoded token claims:");
+                foreach (var claim in jsonToken.Claims)
+                {
+                    _logger.LogInformation($"Claim Type: {claim.Type}, Claim Value: {claim.Value}");
+                }
+            }
+        }
+
+
+         _logger.LogInformation("All claims in the token:");
+        foreach (var claim in context.User.Claims)
+        {
+            _logger.LogInformation($"Claim Type: {claim.Type}, Claim Value: {claim.Value}");
+        }
+
+           var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                     ?? context.User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
+
+        _logger.LogInformation($"User ID from claim: {userId}");
+
+        if (string.IsNullOrEmpty(userId))
+        {
+            _logger.LogWarning("User ID is null or empty");
+            // foreach (var claim in context.User.Claims)
+            // {
+            //     _logger.LogInformation($"Claim: {claim.Type} = {claim.Value}");
+            // }
+            SetUnauthorizedResponse("User not authenticated");
             return;
         }
 
@@ -46,9 +97,13 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
         var moduleAttribute = endpoint?.Metadata.GetMetadata<ModuleAttribute>();
         var permissionAttribute = endpoint?.Metadata.GetMetadata<PermissionAttribute>();
 
+        _logger.LogInformation($"Module: {moduleAttribute?.Name}, Permission: {permissionAttribute?.Name}");
+
         if (moduleAttribute == null || permissionAttribute == null)
         {
-            context.Succeed(requirement);
+            _logger.LogWarning("Module or Permission attribute is null");
+            //context.Succeed(requirement);
+             SetUnauthorizedResponse("Invalid endpoint configuration");
             return;
         }
 
@@ -57,11 +112,15 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
             .Select(ur => ur.RoleId)
             .ToListAsync();
 
+        _logger.LogInformation($"User roles: {string.Join(", ", userRoles)}");
+
         var hasPermission = await _context.RoleModulePermissions
             .AnyAsync(rmp => 
                 userRoles.Contains(rmp.RoleId) && 
                 rmp.Module.Name == moduleAttribute.Name && 
                 rmp.Permission == permissionAttribute.Name);
+
+        _logger.LogInformation($"Has permission: {hasPermission}");
 
         if (hasPermission)
         {
@@ -69,7 +128,17 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
         }
         else
         {
-            context.Fail();
+            _logger.LogWarning($"Permission denied for user: {userId}, Module: {moduleAttribute.Name}, Permission: {permissionAttribute.Name}");
+            SetUnauthorizedResponse("Insufficient permissions");
+        }
+    }
+
+     private void SetUnauthorizedResponse(string message)
+    {
+        if (_httpContextAccessor.HttpContext != null)
+        {
+            _httpContextAccessor.HttpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            _httpContextAccessor.HttpContext.Response.WriteAsync(message);
         }
     }
 }
