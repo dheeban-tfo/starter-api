@@ -1,17 +1,22 @@
 using System.Text;
+using System.Threading.RateLimiting;
+using AspNetCoreRateLimit;
+using Hangfire;
+using Hangfire.SqlServer;
+using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Versioning;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using Microsoft.AspNetCore.Mvc.Versioning;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Serilog;
 using starterapi;
 using starterapi.Services;
-using AspNetCoreRateLimit;
-using System.Threading.RateLimiting;
-using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +37,30 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
+// Add health checks
+builder
+    .Services.AddHealthChecks()
+    .AddCheck("self", () => HealthCheckResult.Healthy())
+    .AddSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        name: "database",
+        failureStatus: HealthStatus.Degraded
+    );
+
+    // Add Hangfire services
+builder.Services.AddHangfire(configuration => configuration
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseSqlServerStorage(builder.Configuration.GetConnectionString("DefaultConnection"), new SqlServerStorageOptions
+    {
+        CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+        SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+        QueuePollInterval = TimeSpan.Zero,
+        UseRecommendedIsolationLevel = true,
+        DisableGlobalLocks = true
+    }));
+
 // Add API Versioning
 builder.Services.AddApiVersioning(options =>
 {
@@ -50,37 +79,48 @@ builder.Services.AddVersionedApiExplorer(options =>
 
 builder.Services.AddSwaggerGen(c =>
 {
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "JWT Authorization header using the Bearer scheme.",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
-
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
+    c.AddSecurityDefinition(
+        "Bearer",
+        new OpenApiSecurityScheme
         {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] {}
+            Description = "JWT Authorization header using the Bearer scheme.",
+            Name = "Authorization",
+            In = ParameterLocation.Header,
+            Type = SecuritySchemeType.ApiKey,
+            Scheme = "Bearer"
         }
-    });
+    );
+
+    c.AddSecurityRequirement(
+        new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                new string[] { }
+            }
+        }
+    );
 });
 builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+);
+
+// Add the processing server as IHostedService
+builder.Services.AddHangfireServer();
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IJwtService, JwtService>();
-builder.Services.AddScoped<IProfileService, ProfileService>(); 
+builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
@@ -88,30 +128,33 @@ builder.Services.AddHttpContextAccessor();
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var key = Encoding.ASCII.GetBytes(jwtSettings["Key"]);
-builder.Services.AddAuthentication(x =>
-{
-    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(x =>
-{
-    x.RequireHttpsMetadata = false;
-    x.SaveToken = true;
-    x.TokenValidationParameters = new TokenValidationParameters
+builder
+    .Services.AddAuthentication(x =>
     {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(key),
-        ValidateIssuer = false,
-        ValidateAudience = false,
-        ClockSkew = TimeSpan.Zero
-    };
-});
+        x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(x =>
+    {
+        x.RequireHttpsMetadata = false;
+        x.SaveToken = true;
+        x.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(key),
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ClockSkew = TimeSpan.Zero
+        };
+    });
 
 // Configure Authorization
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("PermissionPolicy", policy => 
-        policy.Requirements.Add(new PermissionRequirement(null, null)));
+    options.AddPolicy(
+        "PermissionPolicy",
+        policy => policy.Requirements.Add(new PermissionRequirement(null, null))
+    );
 });
 
 builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
@@ -119,7 +162,9 @@ builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
 // Configure rate limiting
 builder.Services.AddMemoryCache();
 builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
-builder.Services.Configure<IpRateLimitPolicies>(builder.Configuration.GetSection("IpRateLimitPolicies"));
+builder.Services.Configure<IpRateLimitPolicies>(
+    builder.Configuration.GetSection("IpRateLimitPolicies")
+);
 builder.Services.AddInMemoryRateLimiting();
 
 // Register dependencies for rate limiting
@@ -127,39 +172,70 @@ builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>()
 builder.Services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrategy>();
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
-
 // Add rate limiting
 builder.Services.AddRateLimiter(options =>
 {
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.User.Identity?.Name ?? httpContext.Request.Headers.Host.ToString(),
+            partitionKey: httpContext.User.Identity?.Name
+                ?? httpContext.Request.Headers.Host.ToString(),
             factory: partition => new FixedWindowRateLimiterOptions
             {
                 AutoReplenishment = true,
                 PermitLimit = 10,
                 QueueLimit = 0,
                 Window = TimeSpan.FromSeconds(1)
-            }));
+            }
+        )
+    );
 
     options.RejectionStatusCode = 429;
 });
 
-
 var app = builder.Build();
+
+// Add health check endpoints
+app.MapHealthChecks(
+    "/health",
+    new HealthCheckOptions { ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse }
+);
+
+app.MapHealthChecks(
+    "/health/ready",
+    new HealthCheckOptions
+    {
+        Predicate = (check) => check.Tags.Contains("ready"),
+        ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+    }
+);
+
+app.MapHealthChecks(
+    "/health/live",
+    new HealthCheckOptions
+    {
+        Predicate = (_) => false,
+        ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+    }
+);
+
+// Configure Hangfire dashboard
+//app.UseHangfireDashboard();
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    var apiVersionDescriptionProvider = app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
+    var apiVersionDescriptionProvider =
+        app.Services.GetRequiredService<IApiVersionDescriptionProvider>();
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
         foreach (var description in apiVersionDescriptionProvider.ApiVersionDescriptions)
         {
             options.SwaggerEndpoint(
-                $"/swagger/{description.GroupName}/swagger.json", 
-                description.GroupName.ToUpperInvariant());
+                $"/swagger/{description.GroupName}/swagger.json",
+                description.GroupName.ToUpperInvariant()
+            );
         }
     });
 }
@@ -193,6 +269,16 @@ using (var scope = app.Services.CreateScope())
 try
 {
     Log.Information("Starting web application");
+    // Log the URLs the application is running on
+    app.Lifetime.ApplicationStarted.Register(() =>
+    {
+        var urls = app.Urls;
+        app.Logger.LogInformation("Application is running on the following URLs:");
+        foreach (var url in urls)
+        {
+            app.Logger.LogInformation(url);
+        }
+    });
     app.Run();
 }
 catch (Exception ex)

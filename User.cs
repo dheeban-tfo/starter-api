@@ -15,5 +15,9 @@ public class User
 
     [JsonIgnore]
     public ICollection<UserRole> UserRoles { get; set; }
+
+     // New fields for password reset
+    public string PasswordResetToken { get; set; }
+    public DateTime? PasswordResetTokenExpires { get; set; }
 }
 
