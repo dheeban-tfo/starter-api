@@ -6,9 +6,9 @@ namespace starterapi;
 public class PermissionMiddleware
 {
     private readonly RequestDelegate _next;
-    private readonly ApplicationDbContext _context;
+    private readonly TenantDbContext _context;
 
-    public PermissionMiddleware(RequestDelegate next, ApplicationDbContext context)
+    public PermissionMiddleware(RequestDelegate next, TenantDbContext context)
     {
         _next = next;
         _context = context;

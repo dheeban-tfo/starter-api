@@ -28,6 +28,18 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 
+// Configure TenantManagementDbContext
+builder.Services.AddDbContext<TenantManagementDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("TenantManagement"))
+);
+
+// Configure TenantDbContext as a factory
+builder.Services.AddDbContextFactory<TenantDbContext>(options =>
+    options.UseSqlServer("placeholder")
+);
+
+builder.Services.AddScoped<ITenantService, TenantService>();
+
 // Configure CORS
 builder.Services.AddCors(options =>
 {
@@ -55,26 +67,24 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-
-
 // Add health checks
 builder
     .Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy())
     .AddSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
+        builder.Configuration.GetConnectionString("TenantManagement"),
         name: "database",
         failureStatus: HealthStatus.Degraded
     );
 
-// Add Hangfire services
+// Configure Hangfire
 builder.Services.AddHangfire(configuration =>
     configuration
         .SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
         .UseSimpleAssemblyNameTypeSerializer()
         .UseRecommendedSerializerSettings()
         .UseSqlServerStorage(
-            builder.Configuration.GetConnectionString("DefaultConnection"),
+            builder.Configuration.GetConnectionString("HangfireConnection"),
             new SqlServerStorageOptions
             {
                 CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
@@ -134,22 +144,25 @@ builder.Services.AddSwaggerGen(c =>
     );
 });
 builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
+
 // builder.Services.AddDbContext<ApplicationDbContext>(options =>
 //     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
 // );
 
 // Register DbContextFactory
-builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContextFactory<TenantDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+);
 
 // Register ApplicationDbContext
-builder.Services.AddScoped<ApplicationDbContext>(p => 
-    p.GetRequiredService<IDbContextFactory<ApplicationDbContext>>().CreateDbContext());
-
+builder.Services.AddScoped<TenantDbContext>(p =>
+    p.GetRequiredService<IDbContextFactory<TenantDbContext>>().CreateDbContext()
+);
 
 // Add the processing server as IHostedService
 builder.Services.AddHangfireServer();
 
+builder.Services.AddScoped<ITenantDbContextAccessor, TenantDbContextAccessor>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
@@ -204,37 +217,79 @@ builder
 
         x.Events = new JwtBearerEvents
         {
-            OnTokenValidated = context =>
-            {
-                var logger = context.HttpContext.RequestServices.GetRequiredService<
-                    ILogger<Program>
-                >();
-                logger.LogInformation("JWT token validated successfully");
-
-                // Preserve original claims
-                var claimsIdentity = context.Principal.Identity as ClaimsIdentity;
-                if (claimsIdentity != null)
-                {
-                    logger.LogInformation("Claims after token validation:");
-                    foreach (var claim in claimsIdentity.Claims)
-                    {
-                        logger.LogInformation(
-                            $"Claim Type: {claim.Type}, Claim Value: {claim.Value}"
-                        );
-                    }
-                }
-
-                return Task.CompletedTask;
-            },
             OnAuthenticationFailed = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<
                     ILogger<Program>
                 >();
-                logger.LogError($"Authentication failed: {context.Exception.Message}");
+                logger.LogError(
+                    "Authentication failed: {ExceptionMessage}",
+                    context.Exception.Message
+                );
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<
+                    ILogger<Program>
+                >();
+                logger.LogInformation("Token validated successfully");
+                return Task.CompletedTask;
+            },
+            OnChallenge = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<
+                    ILogger<Program>
+                >();
+                logger.LogWarning(
+                    "OnChallenge error: {ErrorDescription}",
+                    context.ErrorDescription
+                );
+                return Task.CompletedTask;
+            },
+            OnMessageReceived = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<
+                    ILogger<Program>
+                >();
+                logger.LogInformation("JWT token received: {Token}", context.Token);
                 return Task.CompletedTask;
             }
         };
+
+        // x.Events = new JwtBearerEvents
+        // {
+        //     OnTokenValidated = context =>
+        //     {
+        //         var logger = context.HttpContext.RequestServices.GetRequiredService<
+        //             ILogger<Program>
+        //         >();
+        //         logger.LogInformation("JWT token validated successfully");
+
+        //         // Preserve original claims
+        //         var claimsIdentity = context.Principal.Identity as ClaimsIdentity;
+        //         if (claimsIdentity != null)
+        //         {
+        //             logger.LogInformation("Claims after token validation:");
+        //             foreach (var claim in claimsIdentity.Claims)
+        //             {
+        //                 logger.LogInformation(
+        //                     $"Claim Type: {claim.Type}, Claim Value: {claim.Value}"
+        //                 );
+        //             }
+        //         }
+
+        //         return Task.CompletedTask;
+        //     },
+        //     OnAuthenticationFailed = context =>
+        //     {
+        //         var logger = context.HttpContext.RequestServices.GetRequiredService<
+        //             ILogger<Program>
+        //         >();
+        //         logger.LogError($"Authentication failed: {context.Exception.Message}");
+        //         return Task.CompletedTask;
+        //     }
+        // };
     });
 
 // Configure Authorization
@@ -335,7 +390,6 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-
 app.UseHttpsRedirection();
 
 // Use CORS
@@ -343,6 +397,8 @@ app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseMiddleware<TenantMiddleware>();
 
 // Use rate limiting middleware
 app.UseRateLimiter();
@@ -353,14 +409,22 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
     try
     {
-        var context = services.GetRequiredService<ApplicationDbContext>();
-        DbSeeder.Seed(context);
+        var options = new SqlServerStorageOptions { PrepareSchemaIfNecessary = true };
+        var storage = new SqlServerStorage(
+            builder.Configuration.GetConnectionString("HangfireConnection"),
+            options
+        );
+        var monitoringApi = storage.GetMonitoringApi();
+
+        logger.LogInformation("Starting tenant seeding process...");
+        TenantSeeder.SeedTenants(services);
+        logger.LogInformation("Tenant seeding process completed successfully.");
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "An error occurred while seeding the database.");
     }
 }

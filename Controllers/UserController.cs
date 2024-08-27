@@ -13,13 +13,13 @@ namespace starterapi;
 public class UserController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
-    private readonly ApplicationDbContext _context;
+    private readonly TenantDbContext _context;
     private readonly ILogger<UserController> _logger;
     private readonly IEmailVerificationService _emailVerificationService;
 
     public UserController(
         IUserRepository userRepository,
-        ApplicationDbContext context,
+        TenantDbContext context,
         ILogger<UserController> logger,
         IEmailVerificationService emailVerificationService
     )

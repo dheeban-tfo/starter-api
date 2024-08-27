@@ -3,6 +3,7 @@ using BCrypt.Net;
 using starterapi.Services;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
 
 namespace starterapi;
 
@@ -10,21 +11,27 @@ namespace starterapi;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
-    private readonly IUserRepository _userRepository;
+  private readonly IUserRepository _userRepository;
     private readonly IJwtService _jwtService;
     private readonly ILogger<AuthController> _logger;
     private readonly IEmailVerificationService _emailVerificationService;
+    private readonly ITenantService _tenantService;
+    private readonly ITenantDbContextAccessor _tenantDbContextAccessor;
 
     public AuthController(
         IUserRepository userRepository, 
         IJwtService jwtService, 
         ILogger<AuthController> logger,
-        IEmailVerificationService emailVerificationService)
+        IEmailVerificationService emailVerificationService,
+        ITenantService tenantService,
+        ITenantDbContextAccessor tenantDbContextAccessor)
     {
         _userRepository = userRepository;
         _jwtService = jwtService;
         _logger = logger;
         _emailVerificationService = emailVerificationService;
+        _tenantService = tenantService;
+        _tenantDbContextAccessor = tenantDbContextAccessor;
     }
 
     [HttpPost("login")]
@@ -32,6 +39,17 @@ public class AuthController : ControllerBase
     {
         try
         {
+            _logger.LogInformation($"Login attempt for tenant: {loginRequest.TenantId}, email: {loginRequest.Email}");
+            
+            var tenant = await _tenantService.GetTenantAsync(loginRequest.TenantId);
+            if (tenant == null)
+            {
+                return BadRequest("Invalid tenant identifier");
+            }
+
+            var tenantDb = _tenantService.CreateTenantDbContext(tenant.ConnectionString);
+            HttpContext.Items["TenantDbContext"] = tenantDb;
+
             var user = await _userRepository.GetUserByEmailAsync(loginRequest.Email);
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.PasswordHash))
@@ -41,12 +59,11 @@ public class AuthController : ControllerBase
 
             if (!user.EmailVerified)
             {
-                // Generate a new verification token and send a new verification email
                 await _emailVerificationService.GenerateVerificationTokenAsync(user);
                 return Unauthorized(new { message = "Email not verified. A new verification email has been sent." });
             }
 
-            var token = _jwtService.GenerateToken(user);
+            var token = _jwtService.GenerateToken(user, tenant, tenantDb);
             var refreshToken = _jwtService.GenerateRefreshToken();
 
             user.RefreshToken = refreshToken;
@@ -57,11 +74,11 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An error occurred during login");
+            _logger.LogError(ex, $"An error occurred during login for tenant: {loginRequest.TenantId}, email: {loginRequest.Email}");
             return StatusCode(500, new { message = "An error occurred during login. Please try again later." });
         }
     }
-
+    
     [HttpPost("resend-verification")]
     public async Task<IActionResult> ResendVerification([FromBody] ResendVerificationRequest request)
     {
@@ -90,7 +107,7 @@ public class AuthController : ControllerBase
         }
     }
 
-    [HttpPost("refresh-token")]
+   [HttpPost("refresh-token")]
     public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest refreshRequest)
     {
         if (refreshRequest is null)
@@ -108,6 +125,21 @@ public class AuthController : ControllerBase
         }
 
         string userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+        string tenantId = principal.FindFirstValue("TenantId");
+
+        if (string.IsNullOrEmpty(tenantId))
+        {
+            return BadRequest("Invalid access token: Tenant information is missing");
+        }
+
+        var tenant = await _tenantService.GetTenantAsync(tenantId);
+        if (tenant == null)
+        {
+            return BadRequest("Invalid tenant identifier");
+        }
+
+        var tenantDb = _tenantService.CreateTenantDbContext(tenant.ConnectionString);
+        HttpContext.Items["TenantDbContext"] = tenantDb;
 
         var user = await _userRepository.GetUserByIdAsync(int.Parse(userId));
 
@@ -116,7 +148,7 @@ public class AuthController : ControllerBase
             return BadRequest("Invalid access token or refresh token");
         }
 
-        var newAccessToken = _jwtService.GenerateToken(user);
+        var newAccessToken = _jwtService.GenerateToken(user, tenant, tenantDb);
         var newRefreshToken = _jwtService.GenerateRefreshToken();
 
         user.RefreshToken = newRefreshToken;

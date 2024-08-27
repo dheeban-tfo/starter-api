@@ -17,9 +17,9 @@ public class PermissionAuthorizeFilter : IAuthorizationFilter
 {
     private readonly string _module;
     private readonly string _permission;
-    private readonly ApplicationDbContext _context;
+    private readonly TenantDbContext _context;
 
-    public PermissionAuthorizeFilter(string module, string permission, ApplicationDbContext context)
+    public PermissionAuthorizeFilter(string module, string permission, TenantDbContext context)
     {
         _module = module;
         _permission = permission;

@@ -11,7 +11,7 @@ using starterapi;
 
 namespace starterapi.Migrations
 {
-    [DbContext(typeof(ApplicationDbContext))]
+    [DbContext(typeof(TenantDbContext))]
     [Migration("20240820074630_AddDynamicRolesAndPermissions")]
     partial class AddDynamicRolesAndPermissions
     {

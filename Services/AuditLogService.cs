@@ -14,9 +14,9 @@ namespace starterapi.Services
 
     public class AuditLogService : IAuditLogService
     {
-        private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
+        private readonly IDbContextFactory<TenantDbContext> _contextFactory;
 
-        public AuditLogService(IDbContextFactory<ApplicationDbContext> contextFactory)
+        public AuditLogService(IDbContextFactory<TenantDbContext> contextFactory)
         {
             _contextFactory = contextFactory;
         }

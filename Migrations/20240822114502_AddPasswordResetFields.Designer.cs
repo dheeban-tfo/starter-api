@@ -11,7 +11,7 @@ using starterapi;
 
 namespace starterapi.Migrations
 {
-    [DbContext(typeof(ApplicationDbContext))]
+    [DbContext(typeof(TenantDbContext))]
     [Migration("20240822114502_AddPasswordResetFields")]
     partial class AddPasswordResetFields
     {

@@ -13,10 +13,10 @@ public interface IPasswordResetService
 
 public class PasswordResetService : IPasswordResetService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly TenantDbContext _context;
     private readonly IEmailService _emailService;
 
-    public PasswordResetService(ApplicationDbContext context, IEmailService emailService)
+    public PasswordResetService(TenantDbContext context, IEmailService emailService)
     {
         _context = context;
         _emailService = emailService;

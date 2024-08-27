@@ -8,9 +8,9 @@ namespace starterapi.Controllers
     [ApiController]
     public class RoleManagementController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly TenantDbContext _context;
 
-        public RoleManagementController(ApplicationDbContext context)
+        public RoleManagementController(TenantDbContext context)
         {
             _context = context;
         }

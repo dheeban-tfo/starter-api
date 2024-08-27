@@ -271,3 +271,10 @@ builder.Services.AddHttpClient("resilient")
     }
   }
 }
+
+
+{
+  "tenantId": "alpha",
+  "email": "superadmin@example.com",
+  "password": "SuperAdminPassword123"
+}

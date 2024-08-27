@@ -6,17 +6,24 @@ using starterapi.Services;
 
 namespace starterapi;
 
-public class ApplicationDbContext : DbContext
+public class TenantDbContext : DbContext
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public ApplicationDbContext(
-        DbContextOptions<ApplicationDbContext> options,
-        IHttpContextAccessor httpContextAccessor
-    )
+    // public TenantDbContext(
+    //     DbContextOptions<TenantDbContext> options,
+    //     IHttpContextAccessor httpContextAccessor
+    // )
+    //     : base(options)
+    // {
+    //     _httpContextAccessor = httpContextAccessor;
+    // }
+
+       public TenantDbContext(
+        DbContextOptions<TenantDbContext> options)
         : base(options)
     {
-        _httpContextAccessor = httpContextAccessor;
+      
     }
 
     public DbSet<User> Users { get; set; }
@@ -106,7 +113,7 @@ public class ApplicationDbContext : DbContext
                     }
                 }
 
-                var userId = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "System";
+                var userId = "System" ;// _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "System";
                 AuditLogs.Add(new AuditLog
                 {
                     UserId = userId,

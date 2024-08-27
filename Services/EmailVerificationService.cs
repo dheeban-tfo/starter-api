@@ -12,11 +12,11 @@ public interface IEmailVerificationService
 
 public class EmailVerificationService : IEmailVerificationService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly TenantDbContext _context;
     private readonly IEmailService _emailService;
     private readonly IConfiguration _configuration;
 
-    public EmailVerificationService(ApplicationDbContext context, IEmailService emailService, IConfiguration configuration)
+    public EmailVerificationService(TenantDbContext context, IEmailService emailService, IConfiguration configuration)
     {
         _context = context;
         _emailService = emailService;

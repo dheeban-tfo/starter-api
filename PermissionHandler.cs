@@ -19,12 +19,12 @@ public class PermissionRequirement : IAuthorizationRequirement
 
 public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
 {
-     private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
+     private readonly IDbContextFactory<TenantDbContext> _contextFactory;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<PermissionHandler> _logger;
 
     public PermissionHandler(
-        IDbContextFactory<ApplicationDbContext> contextFactory,
+        IDbContextFactory<TenantDbContext> contextFactory,
         IHttpContextAccessor httpContextAccessor,
         ILogger<PermissionHandler> logger
     )

@@ -1,60 +1,60 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using starterapi.Models;
 using starterapi.Repositories;
+using starterapi.Services;
 
 namespace starterapi;
 
-public class UserRepository : IUserRepository
+public class UserRepository : BaseRepository<User>, IUserRepository
 {
-    // Existing code...
+  
 
     public async Task DeactivateUserAsync(int id)
     {
-        var user = await _context.Users.FindAsync(id);
+        var user = await Context.Users.FindAsync(id);
         if (user != null)
         {
             user.IsActive = false;
-            await _context.SaveChangesAsync();
+            await Context.SaveChangesAsync();
         }
     }
 
-    private readonly ApplicationDbContext _context;
+   // private readonly TenantDbContext _context;
 
-    public UserRepository(ApplicationDbContext context)
+   public UserRepository(ITenantDbContextAccessor contextAccessor) : base(contextAccessor)
     {
-        _context = context;
     }
 
     public async Task<User> GetUserByIdAsync(int id)
     {
-        return await _context.Users.FindAsync(id);
+        return await Context.Users.FindAsync(id);
     }
 
     public async Task<IEnumerable<User>> GetUsersAsync()
     {
-        return await _context.Users.ToListAsync();
+        return await Context.Users.ToListAsync();
     }
 
     public async Task AddUserAsync(User user)
     {
-        await _context.Users.AddAsync(user);
-        await _context.SaveChangesAsync();
+        await Context.Users.AddAsync(user);
+        await Context.SaveChangesAsync();
     }
 
     public async Task UpdateUserAsync(User user)
     {
-        _context.Users.Update(user);
-        await _context.SaveChangesAsync();
+        Context.Users.Update(user);
+        await Context.SaveChangesAsync();
     }
 
     public async Task<User> GetUserByEmailAsync(string email)
     {
-        return await _context.Users.SingleOrDefaultAsync(u => u.Email == email) ?? throw new Exception("User not found.");
+        return await Context.Users.SingleOrDefaultAsync(u => u.Email == email) ?? throw new Exception("User not found.");
     }
 
     public async Task<PagedResult<User>> GetUsersAsync(QueryParameters queryParameters)
     {
-         IQueryable<User> query = _context.Users;
+         IQueryable<User> query = Context.Users;
 
         if (!string.IsNullOrEmpty(queryParameters.SearchTerm))
         {

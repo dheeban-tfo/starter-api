@@ -15,7 +15,7 @@ namespace starterapi.Middleware
             _next = next;
         }
 
-        public async Task InvokeAsync(HttpContext context, ApplicationDbContext dbContext, IAuditLogService auditLogService)
+        public async Task InvokeAsync(HttpContext context, TenantDbContext dbContext, IAuditLogService auditLogService)
         {
             var originalBodyStream = context.Response.Body;
 
@@ -35,7 +35,7 @@ namespace starterapi.Middleware
             }
         }
 
-        private static List<EntityChange> GetEntityChanges(ApplicationDbContext dbContext)
+        private static List<EntityChange> GetEntityChanges(TenantDbContext dbContext)
         {
             var changes = new List<EntityChange>();
 

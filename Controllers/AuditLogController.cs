@@ -12,9 +12,9 @@ namespace starterapi.Controllers
     [Authorize(Roles = "Admin")]
     public class AuditLogController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly TenantDbContext _context;
 
-        public AuditLogController(ApplicationDbContext context)
+        public AuditLogController(TenantDbContext context)
         {
             _context = context;
         }

@@ -6,12 +6,18 @@ namespace starterapi;
 
 public static class DbSeeder
 {
-    public static void Seed(ApplicationDbContext context)
+    public static void SeedTenantData(TenantDbContext context)
     {
+
         using (var transaction = context.Database.BeginTransaction())
         {
             try
             {
+                 
+
+                // Ensure the database is created
+                context.Database.EnsureCreated();
+
                 // Seed Roles
                 SeedRoles(context);
 
@@ -34,7 +40,7 @@ public static class DbSeeder
         }
     }
 
-    private static void SeedRoles(ApplicationDbContext context)
+    private static void SeedRoles(TenantDbContext context)
     {
         string[] roleNames = { "Super Admin", "Basic User" };
 
@@ -49,9 +55,11 @@ public static class DbSeeder
         context.SaveChanges();
     }
 
-    private static void SeedModulesAndPermissions(ApplicationDbContext context)
+    private static void SeedModulesAndPermissions(TenantDbContext context)
     {
-        var controllers = Assembly.GetExecutingAssembly().GetTypes()
+        var controllers = Assembly
+            .GetExecutingAssembly()
+            .GetTypes()
             .Where(type => typeof(ControllerBase).IsAssignableFrom(type) && !type.IsAbstract);
 
         var superAdminRole = context.Roles.First(r => r.Name == "Super Admin");
@@ -69,7 +77,8 @@ public static class DbSeeder
                     context.SaveChanges();
                 }
 
-                var actions = controller.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                var actions = controller
+                    .GetMethods(BindingFlags.Public | BindingFlags.Instance)
                     .Where(m => m.IsDefined(typeof(PermissionAttribute), false));
 
                 foreach (var action in actions)
@@ -78,23 +87,26 @@ public static class DbSeeder
                     if (permissionAttribute != null)
                     {
                         var permission = permissionAttribute.Name;
-                        
+
                         // Check if the permission already exists
-                        var existingPermission = context.RoleModulePermissions
-                            .AsNoTracking()
+                        var existingPermission = context
+                            .RoleModulePermissions.AsNoTracking()
                             .FirstOrDefault(rmp =>
-                                rmp.RoleId == superAdminRole.Id &&
-                                rmp.ModuleId == module.Id &&
-                                rmp.Permission == permission);
+                                rmp.RoleId == superAdminRole.Id
+                                && rmp.ModuleId == module.Id
+                                && rmp.Permission == permission
+                            );
 
                         if (existingPermission == null)
                         {
-                            context.RoleModulePermissions.Add(new RoleModulePermission
-                            {
-                                RoleId = superAdminRole.Id,
-                                ModuleId = module.Id,
-                                Permission = permission
-                            });
+                            context.RoleModulePermissions.Add(
+                                new RoleModulePermission
+                                {
+                                    RoleId = superAdminRole.Id,
+                                    ModuleId = module.Id,
+                                    Permission = permission
+                                }
+                            );
                             context.SaveChanges();
                         }
                     }
@@ -103,7 +115,7 @@ public static class DbSeeder
         }
     }
 
-    private static void SeedSuperAdminUser(ApplicationDbContext context)
+    private static void SeedSuperAdminUser(TenantDbContext context)
     {
         if (!context.Users.Any(u => u.Email == "superadmin@example.com"))
         {
@@ -122,11 +134,9 @@ public static class DbSeeder
             context.Users.Add(superAdminUser);
             context.SaveChanges();
 
-            context.UserRoles.Add(new UserRole
-            {
-                UserId = superAdminUser.Id,
-                RoleId = superAdminRole.Id
-            });
+            context.UserRoles.Add(
+                new UserRole { UserId = superAdminUser.Id, RoleId = superAdminRole.Id }
+            );
 
             context.SaveChanges();
         }

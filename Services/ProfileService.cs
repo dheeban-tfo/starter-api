@@ -10,9 +10,9 @@ public interface IProfileService
 
 public class ProfileService : IProfileService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly TenantDbContext _context;
 
-    public ProfileService(ApplicationDbContext context)
+    public ProfileService(TenantDbContext context)
     {
         _context = context;
     }

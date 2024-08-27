@@ -6,10 +6,10 @@ namespace starterapi.Repositories;
 
 public class GenericRepository<T> : IGenericRepository<T> where T : class
 {
-    protected readonly ApplicationDbContext _context;
+    protected readonly TenantDbContext _context;
     private readonly DbSet<T> _dbSet;
 
-    public GenericRepository(ApplicationDbContext context)
+    public GenericRepository(TenantDbContext context)
     {
         _context = context;
         _dbSet = context.Set<T>();

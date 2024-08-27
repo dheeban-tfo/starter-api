@@ -4,13 +4,14 @@ using System.Text;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
+using starterapi.Models;
 
 
 namespace starterapi;
 
 public interface IJwtService
 {
-    string GenerateToken(User user);
+    string GenerateToken(User user, Tenant tenant, TenantDbContext tenantDbContext);
     string GenerateRefreshToken();
     ClaimsPrincipal GetPrincipalFromExpiredToken(string token);
 }
@@ -18,11 +19,11 @@ public interface IJwtService
 
 public class JwtService : IJwtService
 {
-    private readonly IConfiguration _configuration;
-    private readonly ApplicationDbContext _context;
+private readonly IConfiguration _configuration;
+    private readonly TenantDbContext _context;
     private readonly ILogger<JwtService> _logger;
 
-    public JwtService(IConfiguration configuration, ApplicationDbContext context, ILogger<JwtService> logger)
+    public JwtService(IConfiguration configuration, TenantDbContext context, ILogger<JwtService> logger)
     {
         _configuration = configuration;
         _context = context;
@@ -39,9 +40,9 @@ public class JwtService : IJwtService
         }
     }
 
-    public string GenerateToken(User user)
+    public string GenerateToken(User user, Tenant tenant, TenantDbContext tenantDbContext)
     {
-        _logger.LogInformation("Generating token for user: {UserId}", user.Id);
+         _logger.LogInformation("Generating token for user: {UserId}", user.Id);
 
         var jwtKey = _configuration["Jwt:Key"];
         var jwtIssuer = _configuration["Jwt:Issuer"];
@@ -63,27 +64,28 @@ public class JwtService : IJwtService
             new Claim(JwtRegisteredClaimNames.NameId, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim(JwtRegisteredClaimNames.Name, $"{user.FirstName} {user.LastName}")
+            new Claim(JwtRegisteredClaimNames.Name, $"{user.FirstName} {user.LastName}"),
+            new Claim("TenantId", tenant.Identifier)
         };
 
         // Add roles and permissions
-        var userRoles = _context.UserRoles
+        var userRoles = tenantDbContext.UserRoles
             .Where(ur => ur.UserId == user.Id)
-            .Select(ur => ur.Role)
+            .Include(ur => ur.Role)
             .ToList();
 
-        foreach (var role in userRoles)
+        foreach (var userRole in userRoles)
         {
-            claims.Add(new Claim(ClaimTypes.Role, role.Name));
+            claims.Add(new Claim(ClaimTypes.Role, userRole.Role.Name));
 
-            var permissions = _context.RoleModulePermissions
-                .Where(rmp => rmp.RoleId == role.Id)
-                .Select(rmp => new { rmp.Module.Name, rmp.Permission })
+            var permissions = tenantDbContext.RoleModulePermissions
+                .Where(rmp => rmp.RoleId == userRole.RoleId)
+                .Include(rmp => rmp.Module)
                 .ToList();
 
             foreach (var permission in permissions)
             {
-                claims.Add(new Claim($"{role.Name}-{permission.Name}", permission.Permission));
+                claims.Add(new Claim($"{userRole.Role.Name}-{permission.Module.Name}", permission.Permission));
             }
         }
 
