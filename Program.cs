@@ -35,7 +35,7 @@ builder.Services.AddDbContext<TenantManagementDbContext>(options =>
 
 // Configure TenantDbContext as a factory
 builder.Services.AddDbContextFactory<TenantDbContext>(options =>
-    options.UseSqlServer("placeholder")
+    options.UseSqlServer("Server=localhost;Database=placeholder;User Id=sa;Password=YourStrongPassword!;TrustServerCertificate=true;MultipleActiveResultSets=true")
 );
 
 builder.Services.AddScoped<ITenantService, TenantService>();
