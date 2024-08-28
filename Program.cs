@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using AspNetCoreRateLimit;
 using Hangfire;
@@ -33,10 +34,6 @@ builder.Services.AddDbContext<TenantManagementDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("TenantManagement"))
 );
 
-// Configure TenantDbContext as a factory
-builder.Services.AddDbContextFactory<TenantDbContext>(options =>
-    options.UseSqlServer("Server=localhost;Database=placeholder;User Id=sa;Password=YourStrongPassword!;TrustServerCertificate=true;MultipleActiveResultSets=true")
-);
 
 builder.Services.AddScoped<ITenantService, TenantService>();
 
@@ -149,22 +146,22 @@ builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
 //     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
 // );
 
-// Register DbContextFactory
-builder.Services.AddDbContextFactory<TenantDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
-);
+// // Register DbContextFactory
+// builder.Services.AddDbContextFactory<TenantDbContext>(options =>
+//     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+// );
 
-// Register ApplicationDbContext
-builder.Services.AddScoped<TenantDbContext>(p =>
-    p.GetRequiredService<IDbContextFactory<TenantDbContext>>().CreateDbContext()
-);
+// // Register ApplicationDbContext
+// builder.Services.AddScoped<TenantDbContext>(p =>
+//     p.GetRequiredService<IDbContextFactory<TenantDbContext>>().CreateDbContext()
+// );
 
 // Add the processing server as IHostedService
 builder.Services.AddHangfireServer();
-
+builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<ITenantDbContextAccessor, TenantDbContextAccessor>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IJwtService, JwtService>();
+
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
@@ -340,6 +337,13 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = 429;
 });
 
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.Preserve;
+        options.JsonSerializerOptions.MaxDepth = 64;
+    });
+
 var app = builder.Build();
 
 // Add health check endpoints
@@ -396,9 +400,10 @@ app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 
 app.UseAuthentication();
+app.UseMiddleware<TenantMiddleware>();
 app.UseAuthorization();
 
-app.UseMiddleware<TenantMiddleware>();
+
 
 // Use rate limiting middleware
 app.UseRateLimiter();

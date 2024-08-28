@@ -1,8 +1,12 @@
-﻿namespace starterapi;
+﻿using System.Text.Json.Serialization;
+
+namespace starterapi;
 
 public class RoleModulePermission
 {
     public int RoleId { get; set; }
+     
+    [JsonIgnore]
     public Role Role { get; set; }
 
     public int ModuleId { get; set; }

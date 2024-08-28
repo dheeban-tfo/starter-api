@@ -2,6 +2,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using starterapi.Services;
 
 namespace starterapi;
 
@@ -19,17 +20,17 @@ public class PermissionRequirement : IAuthorizationRequirement
 
 public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
 {
-     private readonly IDbContextFactory<TenantDbContext> _contextFactory;
+    private readonly ITenantDbContextAccessor _contextAccessor;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<PermissionHandler> _logger;
 
     public PermissionHandler(
-        IDbContextFactory<TenantDbContext> contextFactory,
+        ITenantDbContextAccessor contextAccessor,
         IHttpContextAccessor httpContextAccessor,
         ILogger<PermissionHandler> logger
     )
     {
-       _contextFactory = contextFactory;
+        _contextAccessor = contextAccessor;
         _httpContextAccessor = httpContextAccessor;
         _logger = logger;
     }
@@ -39,9 +40,9 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
         PermissionRequirement requirement
     )
     {
-         _logger.LogInformation("Starting permission check");
+        _logger.LogInformation("Starting permission check");
 
-         if (context.User.Identity == null || !context.User.Identity.IsAuthenticated)
+        if (context.User.Identity == null || !context.User.Identity.IsAuthenticated)
         {
             _logger.LogWarning("User is not authenticated");
             return;
@@ -50,11 +51,9 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
         _logger.LogInformation($"User is authenticated: {context.User.Identity.IsAuthenticated}");
         _logger.LogInformation($"Number of claims: {context.User.Claims.Count()}");
 
-        // Log the raw token
         var rawToken = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
         _logger.LogInformation($"Raw token: {rawToken}");
 
-        // Manually decode the token
         if (!string.IsNullOrEmpty(rawToken))
         {
             var handler = new JwtSecurityTokenHandler();
@@ -70,14 +69,13 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
             }
         }
 
-
-         _logger.LogInformation("All claims in the token:");
+        _logger.LogInformation("All claims in the token:");
         foreach (var claim in context.User.Claims)
         {
             _logger.LogInformation($"Claim Type: {claim.Type}, Claim Value: {claim.Value}");
         }
 
-           var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                      ?? context.User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
 
         _logger.LogInformation($"User ID from claim: {userId}");
@@ -85,10 +83,6 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
         if (string.IsNullOrEmpty(userId))
         {
             _logger.LogWarning("User ID is null or empty");
-            // foreach (var claim in context.User.Claims)
-            // {
-            //     _logger.LogInformation($"Claim: {claim.Type} = {claim.Value}");
-            // }
             SetUnauthorizedResponse("User not authenticated");
             return;
         }
@@ -102,12 +96,11 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
         if (moduleAttribute == null || permissionAttribute == null)
         {
             _logger.LogWarning("Module or Permission attribute is null");
-            //context.Succeed(requirement);
-             SetUnauthorizedResponse("Invalid endpoint configuration");
+            SetUnauthorizedResponse("Invalid endpoint configuration");
             return;
         }
 
-         using var dbContext = _contextFactory.CreateDbContext();
+        var dbContext = _contextAccessor.TenantDbContext;
 
         var userRoles = await dbContext.UserRoles
             .Where(ur => ur.UserId == int.Parse(userId))
@@ -135,7 +128,7 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
         }
     }
 
-     private void SetUnauthorizedResponse(string message)
+    private void SetUnauthorizedResponse(string message)
     {
         if (_httpContextAccessor.HttpContext != null)
         {

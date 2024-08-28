@@ -13,22 +13,23 @@ namespace starterapi;
 public class UserController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
-    private readonly TenantDbContext _context;
+    private readonly ITenantDbContextAccessor _contextAccessor;
     private readonly ILogger<UserController> _logger;
     private readonly IEmailVerificationService _emailVerificationService;
 
     public UserController(
         IUserRepository userRepository,
-        TenantDbContext context,
+        ITenantDbContextAccessor contextAccessor,
         ILogger<UserController> logger,
         IEmailVerificationService emailVerificationService
     )
     {
         _userRepository = userRepository;
-        _context = context;
+        _contextAccessor = contextAccessor;
         _logger = logger;
         _emailVerificationService = emailVerificationService;
     }
+
 
     [Permission("View")]
     [HttpGet("{id}")]
@@ -62,8 +63,8 @@ public class UserController : ControllerBase
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password) // Hash the plain text password
         };
 
-        // Retrieve the Basic role from the database
-        var basicRole = await _context.Roles.FirstOrDefaultAsync(r => r.Name == "Basic");
+         var context = _contextAccessor.TenantDbContext;
+        var basicRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Basic");
         if (basicRole != null)
         {
             user.UserRoles = new List<UserRole>

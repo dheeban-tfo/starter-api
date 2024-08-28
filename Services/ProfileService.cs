@@ -10,16 +10,22 @@ public interface IProfileService
 
 public class ProfileService : IProfileService
 {
-    private readonly TenantDbContext _context;
+    private readonly ITenantDbContextAccessor _contextAccessor;
+    private readonly ILogger<ProfileService> _logger;
 
-    public ProfileService(TenantDbContext context)
+    public ProfileService(ITenantDbContextAccessor contextAccessor, ILogger<ProfileService> logger)
     {
-        _context = context;
+        _contextAccessor = contextAccessor;
+        _logger = logger;
     }
 
     public async Task<UserProfileResponse> GetUserProfileAsync(User user)
     {
-        var userRoles = await _context.UserRoles
+        _logger.LogInformation($"Getting profile for user: {user.Id}");
+
+        var context = _contextAccessor.TenantDbContext;
+
+        var userRoles = await context.UserRoles
             .Where(ur => ur.UserId == user.Id)
             .Include(ur => ur.Role)
             .ThenInclude(r => r.RoleModulePermissions)
@@ -35,6 +41,8 @@ public class ProfileService : IProfileService
                 g => g.Key,
                 g => g.Select(rmp => rmp.Permission).Distinct().ToList()
             );
+
+        _logger.LogInformation($"Profile retrieved for user: {user.Id}. Roles: {string.Join(", ", roles)}");
 
         return new UserProfileResponse
         {

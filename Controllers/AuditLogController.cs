@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using starterapi.Models;
+using starterapi.Services;
 
 namespace starterapi.Controllers
 {
@@ -12,17 +13,23 @@ namespace starterapi.Controllers
     [Authorize(Roles = "Admin")]
     public class AuditLogController : ControllerBase
     {
-        private readonly TenantDbContext _context;
+        private readonly ITenantDbContextAccessor _contextAccessor;
+        private readonly ILogger<AuditLogController> _logger;
 
-        public AuditLogController(TenantDbContext context)
+        public AuditLogController(ITenantDbContextAccessor contextAccessor, ILogger<AuditLogController> logger)
         {
-            _context = context;
+            _contextAccessor = contextAccessor;
+            _logger = logger;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAuditLogs([FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate, [FromQuery] string userId, [FromQuery] string action, [FromQuery] string entityName)
         {
-            IQueryable<AuditLog> query = _context.AuditLogs;
+            _logger.LogInformation("Retrieving audit logs with filters: startDate={StartDate}, endDate={EndDate}, userId={UserId}, action={Action}, entityName={EntityName}", 
+                startDate, endDate, userId, action, entityName);
+
+            var context = _contextAccessor.TenantDbContext;
+            IQueryable<AuditLog> query = context.AuditLogs;
 
             if (startDate.HasValue)
                 query = query.Where(log => log.Timestamp >= startDate.Value);
@@ -40,6 +47,9 @@ namespace starterapi.Controllers
                 query = query.Where(log => log.EntityName == entityName);
 
             var logs = await query.OrderByDescending(log => log.Timestamp).ToListAsync();
+
+            _logger.LogInformation("Retrieved {LogCount} audit logs", logs.Count);
+
             return Ok(logs);
         }
     }

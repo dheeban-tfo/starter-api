@@ -5,28 +5,30 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using starterapi.Models;
-
+using starterapi.Services;
 
 namespace starterapi;
 
 public interface IJwtService
 {
-    string GenerateToken(User user, Tenant tenant, TenantDbContext tenantDbContext);
+    string GenerateToken(User user, Tenant tenant);
     string GenerateRefreshToken();
     ClaimsPrincipal GetPrincipalFromExpiredToken(string token);
 }
 
-
 public class JwtService : IJwtService
 {
-private readonly IConfiguration _configuration;
-    private readonly TenantDbContext _context;
+    private readonly IConfiguration _configuration;
+    private readonly ITenantDbContextAccessor _contextAccessor;
     private readonly ILogger<JwtService> _logger;
 
-    public JwtService(IConfiguration configuration, TenantDbContext context, ILogger<JwtService> logger)
+    public JwtService(
+        IConfiguration configuration, 
+        ITenantDbContextAccessor contextAccessor, 
+        ILogger<JwtService> logger)
     {
         _configuration = configuration;
-        _context = context;
+        _contextAccessor = contextAccessor;
         _logger = logger;
     }
 
@@ -40,9 +42,9 @@ private readonly IConfiguration _configuration;
         }
     }
 
-    public string GenerateToken(User user, Tenant tenant, TenantDbContext tenantDbContext)
+    public string GenerateToken(User user, Tenant tenant)
     {
-         _logger.LogInformation("Generating token for user: {UserId}", user.Id);
+        _logger.LogInformation("Generating token for user: {UserId}", user.Id);
 
         var jwtKey = _configuration["Jwt:Key"];
         var jwtIssuer = _configuration["Jwt:Issuer"];
@@ -67,6 +69,8 @@ private readonly IConfiguration _configuration;
             new Claim(JwtRegisteredClaimNames.Name, $"{user.FirstName} {user.LastName}"),
             new Claim("TenantId", tenant.Identifier)
         };
+
+        var tenantDbContext = _contextAccessor.TenantDbContext;
 
         // Add roles and permissions
         var userRoles = tenantDbContext.UserRoles
@@ -111,7 +115,7 @@ private readonly IConfiguration _configuration;
 
     public ClaimsPrincipal GetPrincipalFromExpiredToken(string token)
     {
-         var tokenValidationParameters = new TokenValidationParameters
+        var tokenValidationParameters = new TokenValidationParameters
         {
             ValidateAudience = false,
             ValidateIssuer = false,

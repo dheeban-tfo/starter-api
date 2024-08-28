@@ -11,45 +11,48 @@ namespace starterapi;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
-  private readonly IUserRepository _userRepository;
+private readonly IUserRepository _userRepository;
     private readonly IJwtService _jwtService;
     private readonly ILogger<AuthController> _logger;
     private readonly IEmailVerificationService _emailVerificationService;
+    private readonly ITenantDbContextAccessor _dbContextAccessor;
     private readonly ITenantService _tenantService;
-    private readonly ITenantDbContextAccessor _tenantDbContextAccessor;
 
     public AuthController(
-        IUserRepository userRepository, 
-        IJwtService jwtService, 
+        IUserRepository userRepository,
+        IJwtService jwtService,
         ILogger<AuthController> logger,
         IEmailVerificationService emailVerificationService,
-        ITenantService tenantService,
-        ITenantDbContextAccessor tenantDbContextAccessor)
+        ITenantDbContextAccessor dbContextAccessor,
+        ITenantService tenantService)
     {
         _userRepository = userRepository;
         _jwtService = jwtService;
         _logger = logger;
         _emailVerificationService = emailVerificationService;
+        _dbContextAccessor = dbContextAccessor;
         _tenantService = tenantService;
-        _tenantDbContextAccessor = tenantDbContextAccessor;
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
+    public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest, [FromHeader(Name = "X-TenantId")] string tenantId)
     {
-        try
+       try
         {
-            _logger.LogInformation($"Login attempt for tenant: {loginRequest.TenantId}, email: {loginRequest.Email}");
-            
-            var tenant = await _tenantService.GetTenantAsync(loginRequest.TenantId);
-            if (tenant == null)
+            _logger.LogInformation("Login attempt for tenant: {TenantId}, email: {Email}", tenantId, loginRequest.Email);
+
+            if (string.IsNullOrEmpty(tenantId))
             {
-                return BadRequest("Invalid tenant identifier");
+                return BadRequest(new { message = "Tenant ID is required" });
             }
 
-            var tenantDb = _tenantService.CreateTenantDbContext(tenant.ConnectionString);
-            HttpContext.Items["TenantDbContext"] = tenantDb;
+            var tenant = await _tenantService.GetTenantAsync(tenantId);
+            if (tenant == null)
+            {
+                return BadRequest(new { message = "Invalid tenant identifier" });
+            }
 
+            var tenantDb = _dbContextAccessor.TenantDbContext;
             var user = await _userRepository.GetUserByEmailAsync(loginRequest.Email);
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.PasswordHash))
@@ -63,8 +66,8 @@ public class AuthController : ControllerBase
                 return Unauthorized(new { message = "Email not verified. A new verification email has been sent." });
             }
 
-            var token = _jwtService.GenerateToken(user, tenant, tenantDb);
-            var refreshToken = _jwtService.GenerateRefreshToken();
+         var token = _jwtService.GenerateToken(user, tenant);
+        var refreshToken = _jwtService.GenerateRefreshToken();
 
             user.RefreshToken = refreshToken;
             user.RefreshTokenExpiryTime = DateTime.Now.AddDays(7);
@@ -74,7 +77,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"An error occurred during login for tenant: {loginRequest.TenantId}, email: {loginRequest.Email}");
+            _logger.LogError(ex, "An error occurred during login for tenant: {TenantId}, email: {Email}", tenantId, loginRequest.Email);
             return StatusCode(500, new { message = "An error occurred during login. Please try again later." });
         }
     }
@@ -148,7 +151,7 @@ public class AuthController : ControllerBase
             return BadRequest("Invalid access token or refresh token");
         }
 
-        var newAccessToken = _jwtService.GenerateToken(user, tenant, tenantDb);
+        var newAccessToken = _jwtService.GenerateToken(user, tenant);
         var newRefreshToken = _jwtService.GenerateRefreshToken();
 
         user.RefreshToken = newRefreshToken;

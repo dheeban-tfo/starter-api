@@ -8,22 +8,47 @@ namespace starterapi.Services
 {
     public interface IAuditLogService
     {
-        Task LogAsync(string userId, string action, string entityName, string entityId, string oldValues, string newValues);
-        Task<IEnumerable<AuditLog>> GetAuditLogsAsync(DateTime? startDate, DateTime? endDate, string userId, string action, string entityName);
+        Task LogAsync(
+            string userId,
+            string action,
+            string entityName,
+            string entityId,
+            string oldValues,
+            string newValues
+        );
+        Task<IEnumerable<AuditLog>> GetAuditLogsAsync(
+            DateTime? startDate,
+            DateTime? endDate,
+            string userId,
+            string action,
+            string entityName
+        );
     }
 
     public class AuditLogService : IAuditLogService
     {
-        private readonly IDbContextFactory<TenantDbContext> _contextFactory;
+        private readonly ITenantDbContextAccessor _contextAccessor;
+        private readonly ILogger<AuditLogService> _logger;
 
-        public AuditLogService(IDbContextFactory<TenantDbContext> contextFactory)
+        public AuditLogService(
+            ITenantDbContextAccessor contextAccessor,
+            ILogger<AuditLogService> logger
+        )
         {
-            _contextFactory = contextFactory;
+            _contextAccessor = contextAccessor;
+            _logger = logger;
         }
 
-        public async Task LogAsync(string userId, string action, string entityName, string entityId, string oldValues, string newValues)
+        public async Task LogAsync(
+            string userId,
+            string action,
+            string entityName,
+            string entityId,
+            string oldValues,
+            string newValues
+        )
         {
-            using var context = _contextFactory.CreateDbContext();
+            var context = _contextAccessor.TenantDbContext;
             var auditLog = new AuditLog
             {
                 UserId = userId,
@@ -39,9 +64,15 @@ namespace starterapi.Services
             await context.SaveChangesAsync();
         }
 
-        public async Task<IEnumerable<AuditLog>> GetAuditLogsAsync(DateTime? startDate, DateTime? endDate, string userId, string action, string entityName)
+        public async Task<IEnumerable<AuditLog>> GetAuditLogsAsync(
+            DateTime? startDate,
+            DateTime? endDate,
+            string userId,
+            string action,
+            string entityName
+        )
         {
-            using var context = _contextFactory.CreateDbContext();
+            var context = _contextAccessor.TenantDbContext;
             IQueryable<AuditLog> query = context.AuditLogs;
 
             if (startDate.HasValue)

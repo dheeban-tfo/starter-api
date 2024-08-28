@@ -1,10 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
-using System.Security.Claims;
-using Microsoft.Extensions.Logging;
+﻿using starterapi;
 using starterapi.Services;
-
-namespace starterapi.Middleware;
-
 public class TenantMiddleware
 {
     private readonly RequestDelegate _next;
@@ -16,74 +11,66 @@ public class TenantMiddleware
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context, ITenantService tenantService)
+    public async Task InvokeAsync(HttpContext context, IServiceProvider serviceProvider)
     {
-        _logger.LogInformation("TenantMiddleware invoked");
+        _logger.LogInformation("TenantMiddleware invoked for path: {Path}", context.Request.Path);
 
+        string tenantId = null;
 
-       // Log the Authorization header
-        var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
-        _logger.LogInformation($"Authorization Header: {authHeader}");
-         _logger.LogInformation($"IsAuthenticated: {context.User.Identity?.IsAuthenticated}");
-        _logger.LogInformation($"AuthenticationType: {context.User.Identity?.AuthenticationType}");
-        _logger.LogInformation($"Name: {context.User.Identity?.Name}");
-
-        if (context.User.Identity?.IsAuthenticated == true)
+        if (context.Request.Path.StartsWithSegments("/api/auth/login") && context.Request.Method == "POST")
         {
-            _logger.LogInformation("User is authenticated");
-            
-            var tenantId = context.User.FindFirst("TenantId")?.Value;
-            
-            if (string.IsNullOrEmpty(tenantId))
-            {
-                tenantId = context.User.FindFirst(c => c.Type.EndsWith("TenantId"))?.Value;
-            }
+            tenantId = context.Request.Headers["X-TenantId"].FirstOrDefault();
+            _logger.LogInformation("Login request. TenantId from header: {TenantId}", tenantId);
+        }
+        else if (context.User.Identity?.IsAuthenticated == true)
+        {
+            tenantId = context.User.FindFirst("TenantId")?.Value;
+            _logger.LogInformation("Authenticated request. TenantId from token: {TenantId}", tenantId);
+        }
 
-            _logger.LogInformation($"TenantId from token: {tenantId}");
-
-            if (!string.IsNullOrEmpty(tenantId))
+        if (!string.IsNullOrEmpty(tenantId))
+        {
+            using (var scope = serviceProvider.CreateScope())
             {
-                _logger.LogInformation($"Attempting to get tenant with id: {tenantId}");
-                var tenant = await tenantService.GetTenantAsync(tenantId);
-                if (tenant != null)
+                var tenantService = scope.ServiceProvider.GetRequiredService<ITenantService>();
+                var contextAccessor = scope.ServiceProvider.GetRequiredService<ITenantDbContextAccessor>();
+                try
                 {
-                    _logger.LogInformation($"Tenant found. Creating TenantDbContext for tenant: {tenantId}");
-                    context.Items["TenantDbContext"] = tenantService.CreateTenantDbContext(tenant.ConnectionString);
+                    var tenant = await tenantService.GetTenantAsync(tenantId);
+                    if (tenant != null)
+                    {
+                        var dbContext1 = tenantService.CreateTenantDbContext(tenant.ConnectionString);
+                        contextAccessor.SetTenantDbContext(dbContext1);
+                        _logger.LogInformation("TenantDbContext created for TenantId: {TenantId}", tenantId);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Tenant not found for id: {TenantId}", tenantId);
+                        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                        await context.Response.WriteAsync("Invalid tenant identifier");
+                        return;
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    _logger.LogWarning($"Tenant not found for id: {tenantId}");
-                    context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                    await context.Response.WriteAsync("Invalid tenant identifier");
+                    _logger.LogError(ex, "Failed to create TenantDbContext for TenantId: {TenantId}", tenantId);
+                    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                    await context.Response.WriteAsync("An error occurred while processing the request");
                     return;
                 }
-            }
-            else
-            {
-                _logger.LogWarning("TenantId not found in token");
-                context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await context.Response.WriteAsync("Tenant identifier is required");
-                return;
             }
         }
         else
         {
-            _logger.LogWarning("User is not authenticated");
-            if (!context.Request.Path.StartsWithSegments("/api/auth"))
-            {
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                await context.Response.WriteAsync("Authentication required");
-                return;
-            }
-        }
-
-        // Log all claims in the token
-        _logger.LogInformation("All claims in the token:");
-        foreach (var claim in context.User.Claims)
-        {
-            _logger.LogInformation($"Claim Type: {claim.Type}, Claim Value: {claim.Value}");
+            _logger.LogWarning("No TenantId found in request");
         }
 
         await _next(context);
+
+        if (context.Items["TenantDbContext"] is TenantDbContext dbContext)
+        {
+            await dbContext.DisposeAsync();
+            _logger.LogInformation("TenantDbContext disposed");
+        }
     }
 }
