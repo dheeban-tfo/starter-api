@@ -8,13 +8,10 @@ public static class DbSeeder
 {
     public static void SeedTenantData(TenantDbContext context)
     {
-
         using (var transaction = context.Database.BeginTransaction())
         {
             try
             {
-                 
-
                 // Ensure the database is created
                 context.Database.EnsureCreated();
 
@@ -128,7 +125,8 @@ public static class DbSeeder
                 Email = "superadmin@example.com",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("SuperAdminPassword123"),
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                EmailVerified=true
             };
 
             context.Users.Add(superAdminUser);

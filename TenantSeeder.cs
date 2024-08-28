@@ -12,25 +12,20 @@ public static class TenantSeeder
         using var scope = serviceProvider.CreateScope();
         var tenantManagementContext = scope.ServiceProvider.GetRequiredService<TenantManagementDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-         var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
-          EnsureHangfireDatabaseCreated(configuration, logger);
+        EnsureHangfireDatabaseCreated(configuration, logger);
 
         // Ensure the tenant management database is created
         tenantManagementContext.Database.EnsureCreated();
+
+        // Seed roles and root admin
+        SeedRolesAndRootAdmin(tenantManagementContext, logger);
 
         if (!tenantManagementContext.Tenants.Any())
         {
             logger.LogInformation("Seeding tenants...");
 
-            // Seed root tenant
-            var rootTenant = new Tenant
-            {
-                Name = "Root",
-                Identifier = "root",
-                ConnectionString = "Server=localhost;Database=RootTenantDb;User Id=sa;Password=YourStrongPassword!;TrustServerCertificate=true"
-            };
-            tenantManagementContext.Tenants.Add(rootTenant);
 
             // Seed alpha tenant
             var alphaTenant = new Tenant
@@ -64,6 +59,63 @@ public static class TenantSeeder
         }
     }
 
+    private static void SeedRolesAndRootAdmin(TenantManagementDbContext context, ILogger logger)
+    {
+        logger.LogInformation("Seeding roles and root admin...");
+
+        // Seed roles if they don't exist
+        if (!context.Roles.Any())
+        {
+            var roles = new List<Role>
+            {
+                new Role { Name = "Root" },
+                new Role { Name = "Admin" }
+            };
+
+            context.Roles.AddRange(roles);
+            context.SaveChanges();
+        }
+
+        // Seed root admin if it doesn't exist
+        if (!context.Users.Any(u => u.Email == "rootadmin@example.com"))
+        {
+            var rootRole = context.Roles.FirstOrDefault(r => r.Name == "Root");
+            if (rootRole == null)
+            {
+                logger.LogError("Root role not found. Cannot create root admin.");
+                return;
+            }
+
+            var rootAdmin = new User
+            {
+                FirstName = "Root",
+                LastName = "Admin",
+                Email = "rootadmin@example.com",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("RootAdminPassword123!"),
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            context.Users.Add(rootAdmin);
+            context.SaveChanges();
+
+            var userRole = new UserRole
+            {
+                UserId = rootAdmin.Id,
+                RoleId = rootRole.Id
+            };
+
+            context.UserRoles.Add(userRole);
+            context.SaveChanges();
+
+            logger.LogInformation("Root admin created successfully.");
+        }
+        else
+        {
+            logger.LogInformation("Root admin already exists. Skipping creation.");
+        }
+    }
+
     private static void SeedTenantData(string connectionString, ILogger logger)
     {
         logger.LogInformation($"Seeding tenant data for connection: {connectionString}");
@@ -81,7 +133,6 @@ public static class TenantSeeder
 
         logger.LogInformation($"Completed seeding tenant data for connection: {connectionString}");
     }
-
 
     private static void EnsureHangfireDatabaseCreated(IConfiguration configuration, ILogger logger)
     {

@@ -1,4 +1,6 @@
-﻿using System.Text.Json.Serialization;
+﻿using System;
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using starterapi.Repositories;
 
 namespace starterapi;
@@ -26,11 +28,11 @@ public class User
     public string? PasswordResetToken { get; set; }
     public DateTime? PasswordResetTokenExpires { get; set; }
 
-    // New fields for email verification
+    // Updated to allow null
     public bool EmailVerified { get; set; } = false;
     public string? EmailVerificationToken { get; set; }
     public DateTime? EmailVerificationTokenExpires { get; set; }
 
-     public string? RefreshToken { get; set; }
+    public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiryTime { get; set; }
 }

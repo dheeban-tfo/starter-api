@@ -292,10 +292,12 @@ builder
 // Configure Authorization
 builder.Services.AddAuthorization(options =>
 {
+
     options.AddPolicy(
         "PermissionPolicy",
         policy => policy.Requirements.Add(new PermissionRequirement(null, null))
     );
+
 });
 
 builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
@@ -328,7 +330,7 @@ builder.Services.AddRateLimiter(options =>
             {
                 AutoReplenishment = true,
                 PermitLimit = 10,
-                QueueLimit = 0,
+                QueueLimit = 0, 
                 Window = TimeSpan.FromSeconds(1)
             }
         )
