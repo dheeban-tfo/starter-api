@@ -1,0 +1,107 @@
+classDiagram
+    Tenant "1" -- "*" Property
+    Tenant "1" -- "*" User
+    Property "1" -- "*" Unit
+    Unit "1" -- "*" Resident
+    User <|-- Resident
+    User <|-- Staff
+    Visitor "*" -- "1" Unit
+    Visitor "*" -- "1" Resident
+    VisitorPass "*" -- "1" Visitor
+    VisitorPass "*" -- "1" Unit
+    VisitorPass "*" -- "1" Resident
+    Event "*" -- "1" Property
+    Amenity "*" -- "1" Property
+    AmenityBooking "*" -- "1" Amenity
+    AmenityBooking "*" -- "1" Resident
+    Complaint "*" -- "1" Resident
+    Complaint "*" -- "1" Property
+    Notice "*" -- "1" Property
+
+    class Tenant {
+        +int Id
+        +string Name
+        +string Identifier
+    }
+    class Property {
+        +int Id
+        +int TenantId
+        +string Name
+        +string Address
+    }
+    class Unit {
+        +int Id
+        +int PropertyId
+        +string UnitNumber
+        +UnitType Type
+    }
+    class User {
+        +int Id
+        +int TenantId
+        +string FirstName
+        +string LastName
+        +string Email
+        +string Phone
+    }
+    class Resident {
+        +int UnitId
+        +ResidentType Type
+        +DateTime MoveInDate
+        +DateTime? MoveOutDate
+    }
+    class Staff {
+        +int PropertyId
+        +StaffRole Role
+    }
+    class Visitor {
+        +int Id
+        +string Name
+        +string Phone
+    }
+    class VisitorPass {
+        +int Id
+        +int VisitorId
+        +int UnitId
+        +int ResidentId
+        +DateTime ValidFrom
+        +DateTime ValidTo
+        +VisitorPassType Type
+    }
+    class Event {
+        +int Id
+        +int PropertyId
+        +string Name
+        +string Description
+        +DateTime StartTime
+        +DateTime EndTime
+    }
+    class Amenity {
+        +int Id
+        +int PropertyId
+        +string Name
+        +string Description
+        +bool RequiresBooking
+    }
+    class AmenityBooking {
+        +int Id
+        +int AmenityId
+        +int ResidentId
+        +DateTime StartTime
+        +DateTime EndTime
+    }
+    class Complaint {
+        +int Id
+        +int ResidentId
+        +int PropertyId
+        +string Title
+        +string Description
+        +ComplaintStatus Status
+    }
+    class Notice {
+        +int Id
+        +int PropertyId
+        +string Title
+        +string Content
+        +DateTime PostedDate
+        +DateTime? ExpiryDate
+    }

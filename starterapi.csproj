@@ -48,6 +48,10 @@
 
   <ItemGroup>
     <Folder Include="logs/" />
+    <Folder Include="Modules/Community/Contorllers/" />
+    <Folder Include="Modules/Community/DTOs/" />
+    <Folder Include="Modules/Community/Repositories/" />
+    <Folder Include="Modules/Community/Services/" />
   </ItemGroup>
 
 </Project>
