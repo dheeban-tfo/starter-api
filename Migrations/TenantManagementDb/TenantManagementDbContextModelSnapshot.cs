@@ -3,20 +3,17 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using starterapi;
 
 #nullable disable
 
-namespace starterapi.Migrations.TenantManagement
+namespace starterapi.Migrations.TenantManagementDb
 {
     [DbContext(typeof(TenantManagementDbContext))]
-    [Migration("20240828190045_InitialTenantManagementCreate")]
-    partial class InitialTenantManagementCreate
+    partial class TenantManagementDbContextModelSnapshot : ModelSnapshot
     {
-        /// <inheritdoc />
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

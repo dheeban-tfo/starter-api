@@ -3,10 +3,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace starterapi.Migrations.TenantManagement
+namespace starterapi.Migrations.TenantManagementDb
 {
     /// <inheritdoc />
-    public partial class InitialTenantManagementCreate : Migration
+    public partial class InitialTenantManagementMigration : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

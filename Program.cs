@@ -29,6 +29,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllers();
 
+builder.Services.AddScoped<TenantDbSchemaUpdater>();
+
 // Configure TenantManagementDbContext
 builder.Services.AddDbContext<TenantManagementDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("TenantManagement"))
@@ -168,6 +170,7 @@ builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IEmailVerificationService, EmailVerificationService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddScoped<IMigrationService, MigrationService>();
 
 // Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
@@ -413,6 +416,7 @@ app.UseRateLimiter();
 
 app.MapControllers();
 
+
 // Seed the database
 using (var scope = app.Services.CreateScope())
 {
@@ -428,7 +432,7 @@ using (var scope = app.Services.CreateScope())
         var monitoringApi = storage.GetMonitoringApi();
 
         logger.LogInformation("Starting tenant seeding process...");
-        TenantSeeder.SeedTenants(services);
+        //TenantSeeder.SeedTenants(services);
         logger.LogInformation("Tenant seeding process completed successfully.");
     }
     catch (Exception ex)

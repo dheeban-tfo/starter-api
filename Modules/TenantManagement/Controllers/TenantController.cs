@@ -33,6 +33,14 @@ namespace starterapi.Controllers
             _logger.LogInformation("Creating new tenant: {TenantName}", tenant.Name);
             _context.Tenants.Add(tenant);
             await _context.SaveChangesAsync();
+
+            // Initialize the new tenant's database
+            var optionsBuilder = new DbContextOptionsBuilder<TenantDbContext>();
+            optionsBuilder.UseSqlServer(tenant.ConnectionString);
+            using var tenantDbContext = new TenantDbContext(optionsBuilder.Options);
+            await tenantDbContext.Database.MigrateAsync();
+            DbSeeder.SeedTenantData(tenantDbContext);
+
             return CreatedAtAction(nameof(GetTenant), new { id = tenant.Id }, tenant);
         }
 
@@ -152,6 +160,32 @@ namespace starterapi.Controllers
             var isTenantValid = tenant != null && tenant.IsActive;
 
             return isAuthorized && isTenantValid;
+        }
+
+        
+        [HttpPost]
+        private async Task ApplyTenantMigrations(string connectionString)
+        {
+            var optionsBuilder = new DbContextOptionsBuilder<TenantDbContext>();
+            optionsBuilder.UseSqlServer(connectionString);
+
+            using var context = new TenantDbContext(optionsBuilder.Options);
+
+            // Check if the database exists
+            if (!await context.Database.CanConnectAsync())
+            {
+                _logger.LogInformation(
+                    "Database does not exist. Creating and applying migrations..."
+                );
+                await context.Database.MigrateAsync();
+            }
+            else
+            {
+                _logger.LogInformation("Database exists. Applying any pending migrations...");
+                await context.Database.MigrateAsync();
+            }
+
+            _logger.LogInformation("Migrations applied successfully.");
         }
     }
 }

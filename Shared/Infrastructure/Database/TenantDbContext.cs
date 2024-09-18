@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using starterapi.Models;
+using StarterApi.Models;
 using starterapi.Services;
 
 namespace starterapi;
@@ -19,12 +20,8 @@ public class TenantDbContext : DbContext
     //     _httpContextAccessor = httpContextAccessor;
     // }
 
-       public TenantDbContext(
-        DbContextOptions<TenantDbContext> options)
-        : base(options)
-    {
-      
-    }
+    public TenantDbContext(DbContextOptions<TenantDbContext> options)
+        : base(options) { }
 
     public DbSet<User> Users { get; set; }
     public DbSet<Role> Roles { get; set; }
@@ -32,6 +29,15 @@ public class TenantDbContext : DbContext
     public DbSet<RoleModulePermission> RoleModulePermissions { get; set; }
     public DbSet<UserRole> UserRoles { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
+
+    public DbSet<Community> Communities { get; set; }
+    public DbSet<Block> Blocks { get; set; }
+    public DbSet<Floor> Floors { get; set; }
+    public DbSet<Unit> Units { get; set; }
+    public DbSet<UnitOwnership> UnitOwnerships { get; set; }
+    public DbSet<UnitResident> UnitResidents { get; set; }
+
+    public DbSet<Product> Products { get; set; }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -41,96 +47,99 @@ public class TenantDbContext : DbContext
         return result;
     }
 
-     private List<AuditEntry> OnBeforeSaveChanges()
+    private List<AuditEntry> OnBeforeSaveChanges()
+    {
+        ChangeTracker.DetectChanges();
+        var auditEntries = new List<AuditEntry>();
+
+        foreach (var entry in ChangeTracker.Entries())
         {
-            ChangeTracker.DetectChanges();
-            var auditEntries = new List<AuditEntry>();
+            if (
+                entry.Entity is AuditLog
+                || entry.State == EntityState.Detached
+                || entry.State == EntityState.Unchanged
+            )
+                continue;
 
-            foreach (var entry in ChangeTracker.Entries())
+            var auditEntry = new AuditEntry(entry);
+            auditEntry.TableName = entry.Entity.GetType().Name;
+            auditEntries.Add(auditEntry);
+
+            foreach (var property in entry.Properties)
             {
-                if (entry.Entity is AuditLog || entry.State == EntityState.Detached || entry.State == EntityState.Unchanged)
-                    continue;
-
-                var auditEntry = new AuditEntry(entry);
-                auditEntry.TableName = entry.Entity.GetType().Name;
-                auditEntries.Add(auditEntry);
-
-                foreach (var property in entry.Properties)
+                if (property.IsTemporary)
                 {
-                    if (property.IsTemporary)
-                    {
-                        auditEntry.TemporaryProperties.Add(property);
-                        continue;
-                    }
+                    auditEntry.TemporaryProperties.Add(property);
+                    continue;
+                }
 
-                    string propertyName = property.Metadata.Name;
-                    if (property.Metadata.IsPrimaryKey())
-                    {
-                        auditEntry.KeyValues[propertyName] = property.CurrentValue;
-                        continue;
-                    }
+                string propertyName = property.Metadata.Name;
+                if (property.Metadata.IsPrimaryKey())
+                {
+                    auditEntry.KeyValues[propertyName] = property.CurrentValue;
+                    continue;
+                }
 
-                    switch (entry.State)
-                    {
-                        case EntityState.Added:
-                            auditEntry.NewValues[propertyName] = property.CurrentValue;
-                            break;
+                switch (entry.State)
+                {
+                    case EntityState.Added:
+                        auditEntry.NewValues[propertyName] = property.CurrentValue;
+                        break;
 
-                        case EntityState.Deleted:
+                    case EntityState.Deleted:
+                        auditEntry.OldValues[propertyName] = property.OriginalValue;
+                        break;
+
+                    case EntityState.Modified:
+                        if (property.IsModified)
+                        {
                             auditEntry.OldValues[propertyName] = property.OriginalValue;
-                            break;
+                            auditEntry.NewValues[propertyName] = property.CurrentValue;
+                        }
+                        break;
+                }
+            }
+        }
 
-                        case EntityState.Modified:
-                            if (property.IsModified)
-                            {
-                                auditEntry.OldValues[propertyName] = property.OriginalValue;
-                                auditEntry.NewValues[propertyName] = property.CurrentValue;
-                            }
-                            break;
-                    }
+        return auditEntries;
+    }
+
+    private Task OnAfterSaveChanges(List<AuditEntry> auditEntries)
+    {
+        if (auditEntries == null || auditEntries.Count == 0)
+            return Task.CompletedTask;
+
+        foreach (var auditEntry in auditEntries)
+        {
+            foreach (var prop in auditEntry.TemporaryProperties)
+            {
+                if (prop.Metadata.IsPrimaryKey())
+                {
+                    auditEntry.KeyValues[prop.Metadata.Name] = prop.CurrentValue;
+                }
+                else
+                {
+                    auditEntry.NewValues[prop.Metadata.Name] = prop.CurrentValue;
                 }
             }
 
-            return auditEntries;
-        }
-
-        private Task OnAfterSaveChanges(List<AuditEntry> auditEntries)
-        {
-            if (auditEntries == null || auditEntries.Count == 0)
-                return Task.CompletedTask;
-
-            foreach (var auditEntry in auditEntries)
-            {
-                foreach (var prop in auditEntry.TemporaryProperties)
-                {
-                    if (prop.Metadata.IsPrimaryKey())
-                    {
-                        auditEntry.KeyValues[prop.Metadata.Name] = prop.CurrentValue;
-                    }
-                    else
-                    {
-                        auditEntry.NewValues[prop.Metadata.Name] = prop.CurrentValue;
-                    }
-                }
-
-                var userId = "System" ;// _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "System";
-                AuditLogs.Add(new AuditLog
+            var userId = "System"; // _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "System";
+            AuditLogs.Add(
+                new AuditLog
                 {
                     UserId = userId,
-                    Action = auditEntry.Action ?? "Unknown", 
+                    Action = auditEntry.Action ?? "Unknown",
                     EntityName = auditEntry.TableName,
                     EntityId = JsonConvert.SerializeObject(auditEntry.KeyValues),
                     OldValues = JsonConvert.SerializeObject(auditEntry.OldValues),
                     NewValues = JsonConvert.SerializeObject(auditEntry.NewValues),
                     Timestamp = DateTime.UtcNow
-                });
-            }
-
-            return SaveChangesAsync();
+                }
+            );
         }
 
-   
-    
+        return SaveChangesAsync();
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -173,5 +182,25 @@ public class TenantDbContext : DbContext
             .HasOne(rm => rm.Module)
             .WithMany(m => m.RoleModulePermissions)
             .HasForeignKey(rm => rm.ModuleId);
+
+        modelBuilder
+            .Entity<UnitOwnership>()
+            .HasKey(uo => new
+            {
+                uo.UnitId,
+                uo.UserId,
+                uo.OwnershipStartDate
+            });
+
+        modelBuilder
+            .Entity<UnitResident>()
+            .HasKey(ur => new
+            {
+                ur.UnitId,
+                ur.UserId,
+                ur.MoveInDate
+            });
+
+        modelBuilder.Entity<Product>().Property(p => p.Price).HasColumnType("decimal(18,2)");
     }
 }

@@ -143,3 +143,6 @@ What you've implemented covers the basic requirements for user and role manageme
 10. Health checks: While you mentioned implementing health checks, I don't see an endpoint for it in the Swagger documentation. You might want to add /health endpoints.
 
 Remember, the necessity of these additional features depends on your specific requirements and use cases. The current implementation provides a solid foundation for basic user and role management with permissions.
+
+dotnet ef migrations add InitialTenantManagementMigration -c TenantManagementDbContext
+dotnet ef migrations add InitialTenantMigration -c TenantDbContext

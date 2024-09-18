@@ -25,6 +25,26 @@ public static class DbSeeder
                 SeedSuperAdminUser(context);
 
                 // Commit transaction if all seeding operations are successful
+
+                if (!context.Products.Any())
+                {
+                    context.Products.AddRange(
+                        new Product
+                        {
+                            Name = "Product 1",
+                            Price = 10.99m,
+                            CreatedAt = DateTime.UtcNow
+                        },
+                        new Product
+                        {
+                            Name = "Product 2",
+                            Price = 20.99m,
+                            CreatedAt = DateTime.UtcNow
+                        }
+                    );
+                    context.SaveChanges();
+                }
+
                 transaction.Commit();
             }
             catch (Exception ex)
@@ -126,7 +146,7 @@ public static class DbSeeder
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("SuperAdminPassword123"),
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
-                EmailVerified=true
+                EmailVerified = true
             };
 
             context.Users.Add(superAdminUser);
