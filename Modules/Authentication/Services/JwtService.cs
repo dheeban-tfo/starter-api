@@ -109,6 +109,7 @@ public class JwtService : IJwtService
 
         var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
         _logger.LogInformation("Token generated successfully");
+         _logger.LogInformation("Generated token: {Token}", tokenString);
 
         return tokenString;
     }

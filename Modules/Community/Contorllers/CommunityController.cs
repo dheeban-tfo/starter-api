@@ -7,7 +7,7 @@ namespace StarterApi.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
+    [Authorize(Roles = "Root,Admin")] 
     public class CommunityController : ControllerBase
     {
         private readonly ICommunityRepository _communityRepository;

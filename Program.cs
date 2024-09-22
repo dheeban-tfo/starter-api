@@ -36,19 +36,17 @@ builder.Services.AddDbContext<TenantManagementDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("TenantManagement"))
 );
 
-
 builder.Services.AddScoped<ITenantService, TenantService>();
 
 // Configure CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(
-        "AllowAll",
-        builder =>
-        {
-            builder.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
-        }
-    );
+    options.AddPolicy("AllowAll", builder =>
+    {
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader();
+    });
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -111,37 +109,40 @@ builder.Services.AddVersionedApiExplorer(options =>
     options.SubstituteApiVersionInUrl = true;
 });
 
-builder.Services.AddSwaggerGen(c =>
-{
-    c.AddSecurityDefinition(
-        "Bearer",
-        new OpenApiSecurityScheme
-        {
-            Description = "JWT Authorization header using the Bearer scheme.",
-            Name = "Authorization",
-            In = ParameterLocation.Header,
-            Type = SecuritySchemeType.ApiKey,
-            Scheme = "Bearer"
-        }
-    );
+// builder.Services.AddSwaggerGen(c =>
+// {
+//     c.AddSecurityDefinition(
+//         "Bearer",
+//         new OpenApiSecurityScheme
+//         {
+//             Description = "JWT Authorization header using the Bearer scheme.",
+//             Name = "Authorization",
+//             In = ParameterLocation.Header,
+//             Type = SecuritySchemeType.ApiKey,
+//             Scheme = "Bearer"
+//         }
+//     );
 
-    c.AddSecurityRequirement(
-        new OpenApiSecurityRequirement
-        {
-            {
-                new OpenApiSecurityScheme
-                {
-                    Reference = new OpenApiReference
-                    {
-                        Type = ReferenceType.SecurityScheme,
-                        Id = "Bearer"
-                    }
-                },
-                new string[] { }
-            }
-        }
-    );
-});
+//     c.AddSecurityRequirement(
+//         new OpenApiSecurityRequirement
+//         {
+//             {
+//                 new OpenApiSecurityScheme
+//                 {
+//                     Reference = new OpenApiReference
+//                     {
+//                         Type = ReferenceType.SecurityScheme,
+//                         Id = "Bearer"
+//                     }
+//                 },
+//                 new string[] { }
+//             }
+//         }
+//     );
+// });
+// builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
+
+builder.Services.AddSwaggerGen();
 builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
 
 // builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -217,15 +218,30 @@ builder
 
         x.Events = new JwtBearerEvents
         {
-            OnAuthenticationFailed = context =>
+            OnMessageReceived = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetRequiredService<
                     ILogger<Program>
                 >();
-                logger.LogError(
-                    "Authentication failed: {ExceptionMessage}",
-                    context.Exception.Message
-                );
+                var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
+                logger.LogInformation("Authorization Header: {AuthHeader}", authHeader);
+
+                if (!string.IsNullOrEmpty(authHeader))
+                {
+                    // If the Authorization header doesn't start with 'Bearer ', add it
+                    if (!authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        authHeader = "Bearer " + authHeader;
+                    }
+                    var token = authHeader.Substring("Bearer ".Length).Trim();
+                    context.Token = token;
+                    logger.LogInformation("JWT token extracted: {Token}", token);
+                }
+                else
+                {
+                    logger.LogWarning("No Authorization header found");
+                }
+
                 return Task.CompletedTask;
             },
             OnTokenValidated = context =>
@@ -233,7 +249,15 @@ builder
                 var logger = context.HttpContext.RequestServices.GetRequiredService<
                     ILogger<Program>
                 >();
-                logger.LogInformation("Token validated successfully");
+                logger.LogInformation("JWT token validated successfully");
+                return Task.CompletedTask;
+            },
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetRequiredService<
+                    ILogger<Program>
+                >();
+                logger.LogError($"Authentication failed: {context.Exception.Message}");
                 return Task.CompletedTask;
             },
             OnChallenge = context =>
@@ -241,66 +265,19 @@ builder
                 var logger = context.HttpContext.RequestServices.GetRequiredService<
                     ILogger<Program>
                 >();
-                logger.LogWarning(
-                    "OnChallenge error: {ErrorDescription}",
-                    context.ErrorDescription
-                );
-                return Task.CompletedTask;
-            },
-            OnMessageReceived = context =>
-            {
-                var logger = context.HttpContext.RequestServices.GetRequiredService<
-                    ILogger<Program>
-                >();
-                logger.LogInformation("JWT token received: {Token}", context.Token);
+                logger.LogWarning("OnChallenge error: {Error}", context.Error);
                 return Task.CompletedTask;
             }
         };
-
-        // x.Events = new JwtBearerEvents
-        // {
-        //     OnTokenValidated = context =>
-        //     {
-        //         var logger = context.HttpContext.RequestServices.GetRequiredService<
-        //             ILogger<Program>
-        //         >();
-        //         logger.LogInformation("JWT token validated successfully");
-
-        //         // Preserve original claims
-        //         var claimsIdentity = context.Principal.Identity as ClaimsIdentity;
-        //         if (claimsIdentity != null)
-        //         {
-        //             logger.LogInformation("Claims after token validation:");
-        //             foreach (var claim in claimsIdentity.Claims)
-        //             {
-        //                 logger.LogInformation(
-        //                     $"Claim Type: {claim.Type}, Claim Value: {claim.Value}"
-        //                 );
-        //             }
-        //         }
-
-        //         return Task.CompletedTask;
-        //     },
-        //     OnAuthenticationFailed = context =>
-        //     {
-        //         var logger = context.HttpContext.RequestServices.GetRequiredService<
-        //             ILogger<Program>
-        //         >();
-        //         logger.LogError($"Authentication failed: {context.Exception.Message}");
-        //         return Task.CompletedTask;
-        //     }
-        // };
     });
 
 // Configure Authorization
 builder.Services.AddAuthorization(options =>
 {
-
     options.AddPolicy(
         "PermissionPolicy",
         policy => policy.Requirements.Add(new PermissionRequirement(null, null))
     );
-
 });
 
 builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
@@ -333,7 +310,7 @@ builder.Services.AddRateLimiter(options =>
             {
                 AutoReplenishment = true,
                 PermitLimit = 10,
-                QueueLimit = 0, 
+                QueueLimit = 0,
                 Window = TimeSpan.FromSeconds(1)
             }
         )
@@ -342,9 +319,10 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = 429;
 });
 
-builder.Services.AddControllers()
+builder
+    .Services.AddControllers()
     .AddJsonOptions(options =>
-  {
+    {
         options.JsonSerializerOptions.ReferenceHandler = null;
         options.JsonSerializerOptions.WriteIndented = true;
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
@@ -382,6 +360,16 @@ app.UseHangfireDashboard(
     new DashboardOptions { Authorization = new[] { new HangfireAuthorizationFilter() } }
 );
 
+
+app.UseHttpsRedirection();
+app.UseCors("AllowAll");
+app.UseAuthentication();
+app.UseMiddleware<HeaderLoggingMiddleware>();
+app.UseMiddleware<TenantMiddleware>();
+app.UseAuthorization();
+app.UseRateLimiter();
+app.MapControllers();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -397,24 +385,11 @@ if (app.Environment.IsDevelopment())
                 description.GroupName.ToUpperInvariant()
             );
         }
+        options.OAuthUsePkce();
+        options.ConfigObject.AdditionalItems["persistAuthorization"] = "true";
     });
 }
 
-app.UseHttpsRedirection();
-
-// Use CORS
-app.UseCors("AllowAll");
-
-app.UseAuthentication();
-app.UseMiddleware<TenantMiddleware>();
-app.UseAuthorization();
-
-
-
-// Use rate limiting middleware
-app.UseRateLimiter();
-
-app.MapControllers();
 
 
 // Seed the database

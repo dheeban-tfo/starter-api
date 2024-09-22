@@ -9,7 +9,7 @@ namespace starterapi;
 [Module("User Management")]
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
-[Authorize]
+[Authorize(Roles = "Super Admin")]
 public class UserController : ControllerBase
 {
     private readonly IUserRepository _userRepository;
@@ -29,7 +29,6 @@ public class UserController : ControllerBase
         _logger = logger;
         _emailVerificationService = emailVerificationService;
     }
-
 
     [Permission("View")]
     [HttpGet("{id}")]
@@ -63,7 +62,7 @@ public class UserController : ControllerBase
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password) // Hash the plain text password
         };
 
-         var context = _contextAccessor.TenantDbContext;
+        var context = _contextAccessor.TenantDbContext;
         var basicRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Basic");
         if (basicRole != null)
         {
@@ -94,5 +93,12 @@ public class UserController : ControllerBase
     {
         await _userRepository.DeactivateUserAsync(id);
         return NoContent();
+    }
+
+    [HttpGet("test")]
+    [AllowAnonymous]
+    public IActionResult Test()
+    {
+        return Ok("Test successful");
     }
 }
