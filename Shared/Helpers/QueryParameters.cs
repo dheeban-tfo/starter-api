@@ -16,4 +16,7 @@ public class QueryParameters
     public string? SearchTerm { get; set; }
     public string? SortBy { get; set; }
     public string SortOrder { get; set; } = "asc";
+
+    // Dynamic filters
+    public Dictionary<string, string> Filters { get; set; } = new Dictionary<string, string>();
 }

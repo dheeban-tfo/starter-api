@@ -23,6 +23,7 @@ using starterapi.Filters;
 using starterapi.Middleware;
 using starterapi.Repositories;
 using starterapi.Services;
+using StarterApi.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -172,6 +173,10 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IEmailVerificationService, EmailVerificationService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IMigrationService, MigrationService>();
+
+builder.Services.AddScoped<IBlockRepository, BlockRepository>();
+builder.Services.AddScoped<IFloorRepository, FloorRepository>();
+builder.Services.AddScoped<IUnitRepository, UnitRepository>();
 
 // Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();

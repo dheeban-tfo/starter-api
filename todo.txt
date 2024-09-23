@@ -278,3 +278,4 @@ builder.Services.AddHttpClient("resilient")
   "email": "superadmin@example.com",
   "password": "SuperAdminPassword123"
 }
+
