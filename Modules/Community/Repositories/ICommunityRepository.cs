@@ -15,5 +15,7 @@ namespace StarterApi.Repositories
         Task<CommunityWithBlocksDto> GetCommunityWithBlocksAsync(int id);
         Task<CommunityWithBlocksAndFloorsDto> GetCommunityWithBlocksAndFloorsAsync(int id);
         Task<CommunityFullDto> GetCommunityFullAsync(int id);
+        Task<CommunityStatisticsDto> GetCommunityStatisticsAsync();
+    Task<List<CommunityBasicStatsDto>> GetAllCommunityBasicStatsAsync();
     }
 }

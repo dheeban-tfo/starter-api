@@ -66,3 +66,22 @@ public class UnitDto
     public string UnitNumber { get; set; }
     public UnitType Type { get; set; }
 }
+
+public class CommunityStatisticsDto
+{
+    public int TotalCommunities { get; set; }
+    public int TotalBlocks { get; set; }
+    public int TotalUnits { get; set; }
+    public double AverageBlocksPerCommunity { get; set; }
+    public double AverageUnitsPerCommunity { get; set; }
+    public CommunityBasicStatsDto MostPopulousCommunity { get; set; }
+    public CommunityBasicStatsDto CommunityWithMostBlocks { get; set; }
+}
+
+public class CommunityBasicStatsDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public int BlockCount { get; set; }
+    public int UnitCount { get; set; }
+}

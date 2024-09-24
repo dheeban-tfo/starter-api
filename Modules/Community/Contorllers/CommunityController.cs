@@ -116,7 +116,9 @@ namespace StarterApi.Controllers
         }
 
         [HttpGet("{id}/withBlocksAndFloors")]
-        public async Task<ActionResult<CommunityWithBlocksAndFloorsDto>> GetCommunityWithBlocksAndFloors(int id)
+        public async Task<
+            ActionResult<CommunityWithBlocksAndFloorsDto>
+        > GetCommunityWithBlocksAndFloors(int id)
         {
             var community = await _communityRepository.GetCommunityWithBlocksAndFloorsAsync(id);
             if (community == null)
@@ -135,6 +137,39 @@ namespace StarterApi.Controllers
                 return NotFound();
             }
             return community;
+        }
+
+        [HttpGet("statistics")]
+        public async Task<ActionResult<CommunityStatisticsDto>> GetCommunityStatistics()
+        {
+            try
+            {
+                var statistics = await _communityRepository.GetCommunityStatisticsAsync();
+                return Ok(statistics);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving community statistics");
+                return StatusCode(500, "An error occurred while retrieving community statistics");
+            }
+        }
+
+        [HttpGet("basic-stats")]
+        public async Task<ActionResult<List<CommunityBasicStatsDto>>> GetAllCommunityBasicStats()
+        {
+            try
+            {
+                var basicStats = await _communityRepository.GetAllCommunityBasicStatsAsync();
+                return Ok(basicStats);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving basic community statistics");
+                return StatusCode(
+                    500,
+                    "An error occurred while retrieving basic community statistics"
+                );
+            }
         }
     }
 }

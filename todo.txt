@@ -279,3 +279,23 @@ builder.Services.AddHttpClient("resilient")
   "password": "SuperAdminPassword123"
 }
 
+
+
+dont suggest the code. let me explain the idea and we can plan it
+
+For TenantManagement, Root admin is standard , which is used by tech team to create and manage tenants, its part of the initial default data seed.
+
+for TenantsDB,
+
+Superadmin is standard , which is used by tenant administrator to create and manage all modules, its part of the initial default data seed.
+
+For any users under Tenants DB, 
+
+Superadmin user will create any roles like example  admin, manager, supervisor, user manager, receptionist 
+
+for each role, we can give them a permission for each module, lets say user management ( create, edit, delete, export)
+
+Community Management  ( create, edit, delete, export, dashboard,upload images)
+
+modules are defined by each controller, and actions have standard actions, as well as some custom actions depends on the module like allow priniting, allow export, allow bulk update
+

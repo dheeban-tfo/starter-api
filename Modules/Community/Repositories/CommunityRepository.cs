@@ -194,5 +194,74 @@ namespace StarterApi.Repositories
                 })
                 .FirstOrDefaultAsync();
         }
+
+        public async Task<CommunityStatisticsDto> GetCommunityStatisticsAsync()
+        {
+            var context = _contextAccessor.TenantDbContext;
+
+            var totalCommunities = await context.Communities.CountAsync();
+            var totalBlocks = await context.Blocks.CountAsync();
+            var totalUnits = await context.Units.CountAsync();
+
+            var mostPopulousCommunity = await context
+                .Communities.OrderByDescending(c =>
+                    c.Blocks.Sum(b => b.Floors.Sum(f => f.Units.Count))
+                )
+                .Select(c => new
+                {
+                    c.Id,
+                    c.Name,
+                    UnitCount = c.Blocks.Sum(b => b.Floors.Sum(f => f.Units.Count))
+                })
+                .FirstOrDefaultAsync();
+
+            var communityWithMostBlocks = await context
+                .Communities.OrderByDescending(c => c.Blocks.Count)
+                .Select(c => new
+                {
+                    c.Id,
+                    c.Name,
+                    BlockCount = c.Blocks.Count
+                })
+                .FirstOrDefaultAsync();
+
+            return new CommunityStatisticsDto
+            {
+                TotalCommunities = totalCommunities,
+                TotalBlocks = totalBlocks,
+                TotalUnits = totalUnits,
+                AverageBlocksPerCommunity =
+                    totalCommunities > 0 ? (double)totalBlocks / totalCommunities : 0,
+                AverageUnitsPerCommunity =
+                    totalCommunities > 0 ? (double)totalUnits / totalCommunities : 0,
+                MostPopulousCommunity = new CommunityBasicStatsDto
+                {
+                    Id = mostPopulousCommunity.Id,
+                    Name = mostPopulousCommunity.Name,
+                    UnitCount = mostPopulousCommunity.UnitCount
+                },
+                CommunityWithMostBlocks = new CommunityBasicStatsDto
+                {
+                    Id = communityWithMostBlocks.Id,
+                    Name = communityWithMostBlocks.Name,
+                    BlockCount = communityWithMostBlocks.BlockCount
+                }
+            };
+        }
+
+        public async Task<List<CommunityBasicStatsDto>> GetAllCommunityBasicStatsAsync()
+        {
+            var context = _contextAccessor.TenantDbContext;
+
+            return await context
+                .Communities.Select(c => new CommunityBasicStatsDto
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    BlockCount = c.Blocks.Count,
+                    UnitCount = c.Blocks.Sum(b => b.Floors.Sum(f => f.Units.Count))
+                })
+                .ToListAsync();
+        }
     }
 }
