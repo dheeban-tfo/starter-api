@@ -24,6 +24,7 @@ using starterapi.Middleware;
 using starterapi.Repositories;
 using starterapi.Services;
 using StarterApi.Repositories;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -146,6 +147,10 @@ builder.Services.AddVersionedApiExplorer(options =>
 builder.Services.AddSwaggerGen();
 builder.Services.ConfigureOptions<ConfigureSwaggerOptions>();
 
+builder.Services.AddDbContextFactory<TenantDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+
 // builder.Services.AddDbContext<ApplicationDbContext>(options =>
 //     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
 // );
@@ -180,6 +185,7 @@ builder.Services.AddScoped<IUnitRepository, UnitRepository>();
 
 // Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
 
 // Configure JWT Authentication
 // Check JWT configuration

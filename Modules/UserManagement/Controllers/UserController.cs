@@ -43,6 +43,7 @@ public class UserController : ControllerBase
 
     
     [HttpGet]
+    [Authorize(Policy = "PermissionPolicy")]
     [Permission(nameof(ModuleActions.UserManagement.Read))]
     public async Task<ActionResult<IEnumerable<User>>> GetUsers()
     {
