@@ -91,6 +91,7 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
                 var cacheEntryOptions = new MemoryCacheEntryOptions()
                     .SetSlidingExpiration(TimeSpan.FromMinutes(30));
                 _cache.Set(cacheKey, userPermissions, cacheEntryOptions);
+                _logger.LogInformation("User permissions cached successfully");
             }
 
             var hasPermission = userPermissions.Contains($"{moduleName}_{actionName}");
