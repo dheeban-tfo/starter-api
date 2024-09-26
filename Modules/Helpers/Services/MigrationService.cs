@@ -13,7 +13,7 @@ namespace starterapi.Services
     {
         Task<string> MigrateSpecificTenantAsync(string tenantId);
         Task<string> MigrateAllTenantsAsync();
-         Task<string> SeedTenantDataAsync(string tenantId);
+        Task<string> SeedTenantDataAsync(string tenantId);
     }
 
     public class MigrationService : IMigrationService
@@ -43,28 +43,25 @@ namespace starterapi.Services
                 throw new ArgumentException($"Tenant with ID {tenantId} not found.");
             }
 
-            return await MigrateTenantDatabaseAsync(tenant.ConnectionString, tenantId);
+            var result = await MigrateTenantDatabaseAsync(tenant.ConnectionString, tenantId);
+            await SeedTenantDataAsync(tenantId);
+            return result;
         }
 
         public async Task<string> MigrateAllTenantsAsync()
         {
-            // var tenants = await _tenantManagementDbContext.Tenants.ToListAsync();
-            // var results = new List<string>();
-            // foreach (var tenant in tenants)
-            // {
-            //     results.Add(await MigrateTenantDatabaseAsync(tenant.ConnectionString, tenant.Identifier));
-            // }
-            // return string.Join("\n", results);
-
             var tenants = await _tenantManagementDbContext.Tenants.ToListAsync();
             var results = new List<string>();
             foreach (var tenant in tenants)
             {
-                results.Add(
-                    await MigrateTenantDatabaseAsync(tenant.ConnectionString, tenant.Identifier)
+                var migrationResult = await MigrateTenantDatabaseAsync(
+                    tenant.ConnectionString,
+                    tenant.Identifier
                 );
+                var seedingResult = await SeedTenantDataAsync(tenant.Identifier);
+                results.Add($"{migrationResult}\n{seedingResult}");
             }
-            return string.Join("\n", results);
+            return string.Join("\n\n", results);
         }
 
         private async Task<string> MigrateTenantDatabaseAsync(
@@ -72,58 +69,61 @@ namespace starterapi.Services
             string tenantId
         )
         {
-     
-  _logger.LogInformation($"Attempting to migrate database for tenant {tenantId}");
+            _logger.LogInformation($"Attempting to migrate database for tenant {tenantId}");
 
-        var optionsBuilder = new DbContextOptionsBuilder<TenantDbContext>();
-        optionsBuilder.UseSqlServer(connectionString);
+            var optionsBuilder = new DbContextOptionsBuilder<TenantDbContext>();
+            optionsBuilder.UseSqlServer(connectionString);
 
-        using var context = new TenantDbContext(optionsBuilder.Options);
+            using var context = new TenantDbContext(optionsBuilder.Options);
 
-        try
-        {
-            // Check if the database exists
-            bool dbExists = await context.Database.CanConnectAsync();
-
-            if (!dbExists)
+            try
             {
-                // If the database doesn't exist, create it and apply migrations
-                await context.Database.MigrateAsync();
-                _logger.LogInformation($"Created and migrated new database for tenant {tenantId}");
-            }
-            else
-            {
-                // If the database exists, check if it has any migrations applied
-                var appliedMigrations = await context.Database.GetAppliedMigrationsAsync();
-                
-                if (!appliedMigrations.Any())
+                // Check if the database exists
+                bool dbExists = await context.Database.CanConnectAsync();
+
+                if (!dbExists)
                 {
-                    // If no migrations are applied, but the database exists (created by EnsureCreated),
-                    // we need to mark the initial migration as applied without running it
-                    var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
-                    if (pendingMigrations.Any())
+                    // If the database doesn't exist, create it and apply migrations
+                    await context.Database.MigrateAsync();
+                    _logger.LogInformation(
+                        $"Created and migrated new database for tenant {tenantId}"
+                    );
+                }
+                else
+                {
+                    // If the database exists, check if it has any migrations applied
+                    var appliedMigrations = await context.Database.GetAppliedMigrationsAsync();
+
+                    if (!appliedMigrations.Any())
                     {
-                        var initialMigration = pendingMigrations.First();
-                        await context.Database.ExecuteSqlRawAsync(
-                            $"INSERT INTO __EFMigrationsHistory (MigrationId, ProductVersion) VALUES ('{initialMigration}', '{context.GetType().Assembly.GetName().Version}')");
-                        
-                        _logger.LogInformation($"Marked initial migration as applied for tenant {tenantId}");
+                        // If no migrations are applied, but the database exists (created by EnsureCreated),
+                        // we need to mark the initial migration as applied without running it
+                        var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+                        if (pendingMigrations.Any())
+                        {
+                            var initialMigration = pendingMigrations.First();
+                            await context.Database.ExecuteSqlRawAsync(
+                                $"INSERT INTO __EFMigrationsHistory (MigrationId, ProductVersion) VALUES ('{initialMigration}', '{context.GetType().Assembly.GetName().Version}')"
+                            );
+
+                            _logger.LogInformation(
+                                $"Marked initial migration as applied for tenant {tenantId}"
+                            );
+                        }
                     }
+
+                    // Apply any pending migrations
+                    await context.Database.MigrateAsync();
                 }
 
-                // Apply any pending migrations
-                await context.Database.MigrateAsync();
+                _logger.LogInformation($"Successfully migrated database for tenant {tenantId}");
+                return $"Successfully migrated database for tenant {tenantId}";
             }
-
-            _logger.LogInformation($"Successfully migrated database for tenant {tenantId}");
-            return $"Successfully migrated database for tenant {tenantId}";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Error migrating database for tenant {tenantId}");
-            return $"Error migrating database for tenant {tenantId}: {ex.Message}";
-        }
-    
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error migrating database for tenant {tenantId}");
+                return $"Error migrating database for tenant {tenantId}: {ex.Message}";
+            }
 
             // _logger.LogInformation($"Attempting to migrate database for tenant {tenantId}");
 
@@ -149,7 +149,7 @@ namespace starterapi.Services
             //     return $"Error migrating database for tenant {tenantId}: {ex.Message}";
             // }
 
-//--------
+            //--------
             // _logger.LogInformation($"Attempting to migrate database for tenant {tenantId}");
 
             // var optionsBuilder = new DbContextOptionsBuilder<TenantDbContext>();
@@ -200,17 +200,17 @@ namespace starterapi.Services
         }
 
         public async Task<string> SeedTenantDataAsync(string tenantId)
-    {
-        try
         {
-            await TenantSeeder.SeedTenantAsync(_serviceProvider, tenantId);
-            return $"Successfully seeded data for tenant {tenantId}";
+            try
+            {
+                await TenantSeeder.SeedTenantAsync(_serviceProvider, tenantId);
+                return $"Successfully seeded data for tenant {tenantId}";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error seeding data for tenant {tenantId}");
+                return $"Error seeding data for tenant {tenantId}: {ex.Message}";
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Error seeding data for tenant {tenantId}");
-            return $"Error seeding data for tenant {tenantId}: {ex.Message}";
-        }
-    }
     }
 }

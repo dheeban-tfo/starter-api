@@ -27,13 +27,14 @@ public class PermissionMiddleware
             if (moduleAttribute != null && permissionAttribute != null)
             {
                 var userId = int.Parse(user.FindFirst(ClaimTypes.NameIdentifier).Value);
-                var userRoles = await _context.UserRoles
-                    .Where(ur => ur.UserId == userId)
-                    .Select(ur => ur.RoleId)
-                    .ToListAsync();
+                var moduleName = moduleAttribute.Name.ToString();
+                var actionName = permissionAttribute.Name;
 
-                var hasPermission = await _context.RoleModulePermissions
-                    .AnyAsync(rmp => userRoles.Contains(rmp.RoleId) && rmp.Module.Name == moduleAttribute.Name && rmp.Permission == permissionAttribute.Name);
+                var hasPermission = await _context.UserRoles
+                    .Where(ur => ur.UserId == userId)
+                    .Select(ur => ur.Role)
+                    .SelectMany(r => r.AllowedActions)
+                    .AnyAsync(ma => ma.Module.Name == moduleName && ma.Name == actionName);
 
                 if (!hasPermission)
                 {

@@ -26,7 +26,9 @@ public class TenantDbContext : DbContext
     public DbSet<User> Users { get; set; }
     public DbSet<Role> Roles { get; set; }
     public DbSet<Module> Modules { get; set; }
-    public DbSet<RoleModulePermission> RoleModulePermissions { get; set; }
+
+    public DbSet<ModuleAction> ModuleActions { get; set; }
+
     public DbSet<UserRole> UserRoles { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
 
@@ -143,9 +145,6 @@ public class TenantDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(modelBuilder);
-        // Configure entity settings here if needed
-
         // Many-to-Many for User and Role
         modelBuilder.Entity<UserRole>().HasKey(ur => new { ur.UserId, ur.RoleId });
 
@@ -161,28 +160,21 @@ public class TenantDbContext : DbContext
             .WithMany(r => r.UserRoles)
             .HasForeignKey(ur => ur.RoleId);
 
-        // Many-to-Many for Role and Module with Permission
+        // Configure ModuleAction
         modelBuilder
-            .Entity<RoleModulePermission>()
-            .HasKey(rm => new
-            {
-                rm.RoleId,
-                rm.ModuleId,
-                rm.Permission
-            });
+            .Entity<ModuleAction>()
+            .HasOne(ma => ma.Module)
+            .WithMany(m => m.Actions)
+            .HasForeignKey(ma => ma.ModuleId);
 
+        // Configure Role and ModuleAction many-to-many relationship
         modelBuilder
-            .Entity<RoleModulePermission>()
-            .HasOne(rm => rm.Role)
-            .WithMany(r => r.RoleModulePermissions)
-            .HasForeignKey(rm => rm.RoleId);
+            .Entity<Role>()
+            .HasMany(r => r.AllowedActions)
+            .WithMany(ma => ma.Roles)
+            .UsingEntity(j => j.ToTable("RoleModuleActions"));
 
-        modelBuilder
-            .Entity<RoleModulePermission>()
-            .HasOne(rm => rm.Module)
-            .WithMany(m => m.RoleModulePermissions)
-            .HasForeignKey(rm => rm.ModuleId);
-
+        // Configure UnitOwnership
         modelBuilder
             .Entity<UnitOwnership>()
             .HasKey(uo => new
@@ -192,6 +184,7 @@ public class TenantDbContext : DbContext
                 uo.OwnershipStartDate
             });
 
+        // Configure UnitResident
         modelBuilder
             .Entity<UnitResident>()
             .HasKey(ur => new
@@ -201,6 +194,12 @@ public class TenantDbContext : DbContext
                 ur.MoveInDate
             });
 
+        // Configure Product Price
         modelBuilder.Entity<Product>().Property(p => p.Price).HasColumnType("decimal(18,2)");
+
+        // You may want to add other configurations here if needed, such as:
+        // - Configuring indexes
+        // - Setting up cascade delete behaviors
+        // - Configuring any other entity relationships not covered above
     }
 }

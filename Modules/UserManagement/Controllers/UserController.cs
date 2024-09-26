@@ -6,7 +6,7 @@ using starterapi.Services;
 namespace starterapi;
 
 [ApiVersion("1.0")]
-[Module("User Management")]
+[Module(ModuleName.UserManagement)]
 [ApiController]
 [Route("api/v{version:apiVersion}/[controller]")]
 [Authorize(Roles = "Super Admin")]
@@ -41,9 +41,9 @@ public class UserController : ControllerBase
         return Ok(user);
     }
 
-    [Permission("View")]
-    [Authorize(Policy = "PermissionPolicy")]
+    
     [HttpGet]
+    [Permission(nameof(ModuleActions.UserManagement.Read))]
     public async Task<ActionResult<IEnumerable<User>>> GetUsers()
     {
         return Ok(await _userRepository.GetUsersAsync());

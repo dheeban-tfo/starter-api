@@ -26,24 +26,8 @@ public static class DbSeeder
 
                 // Commit transaction if all seeding operations are successful
 
-                if (!context.Products.Any())
-                {
-                    context.Products.AddRange(
-                        new Product
-                        {
-                            Name = "Product 1",
-                            Price = 10.99m,
-                            CreatedAt = DateTime.UtcNow
-                        },
-                        new Product
-                        {
-                            Name = "Product 2",
-                            Price = 20.99m,
-                            CreatedAt = DateTime.UtcNow
-                        }
-                    );
-                    context.SaveChanges();
-                }
+                // Seed Products (if needed)
+                SeedProducts(context);
 
                 transaction.Commit();
             }
@@ -73,63 +57,74 @@ public static class DbSeeder
     }
 
     private static void SeedModulesAndPermissions(TenantDbContext context)
+{
+    var superAdminRole = context.Roles.Include(r => r.AllowedActions).First(r => r.Name == "Super Admin");
+    var modulesToAdd = new List<Module>();
+    var actionsToAdd = new List<ModuleAction>();
+
+    foreach (ModuleName moduleName in Enum.GetValues(typeof(ModuleName)))
     {
-        var controllers = Assembly
-            .GetExecutingAssembly()
-            .GetTypes()
-            .Where(type => typeof(ControllerBase).IsAssignableFrom(type) && !type.IsAbstract);
-
-        var superAdminRole = context.Roles.First(r => r.Name == "Super Admin");
-
-        foreach (var controller in controllers)
+        var module = context.Modules.FirstOrDefault(m => m.Name == moduleName.ToString());
+        if (module == null)
         {
-            var moduleAttribute = controller.GetCustomAttribute<ModuleAttribute>();
-            if (moduleAttribute != null)
+            module = new Module { Name = moduleName.ToString() };
+            modulesToAdd.Add(module);
+        }
+
+        var actions = GetActionsForModule(moduleName);
+
+        foreach (var action in actions)
+        {
+            var moduleAction = context.ModuleActions.FirstOrDefault(ma =>
+                ma.Module.Name == module.Name && ma.Name == action
+            );
+            if (moduleAction == null)
             {
-                var module = context.Modules.FirstOrDefault(m => m.Name == moduleAttribute.Name);
-                if (module == null)
-                {
-                    module = new Module { Name = moduleAttribute.Name };
-                    context.Modules.Add(module);
-                    context.SaveChanges();
-                }
-
-                var actions = controller
-                    .GetMethods(BindingFlags.Public | BindingFlags.Instance)
-                    .Where(m => m.IsDefined(typeof(PermissionAttribute), false));
-
-                foreach (var action in actions)
-                {
-                    var permissionAttribute = action.GetCustomAttribute<PermissionAttribute>();
-                    if (permissionAttribute != null)
-                    {
-                        var permission = permissionAttribute.Name;
-
-                        // Check if the permission already exists
-                        var existingPermission = context
-                            .RoleModulePermissions.AsNoTracking()
-                            .FirstOrDefault(rmp =>
-                                rmp.RoleId == superAdminRole.Id
-                                && rmp.ModuleId == module.Id
-                                && rmp.Permission == permission
-                            );
-
-                        if (existingPermission == null)
-                        {
-                            context.RoleModulePermissions.Add(
-                                new RoleModulePermission
-                                {
-                                    RoleId = superAdminRole.Id,
-                                    ModuleId = module.Id,
-                                    Permission = permission
-                                }
-                            );
-                            context.SaveChanges();
-                        }
-                    }
-                }
+                moduleAction = new ModuleAction { Module = module, Name = action };
+                actionsToAdd.Add(moduleAction);
             }
         }
+    }
+
+    context.Modules.AddRange(modulesToAdd);
+    context.ModuleActions.AddRange(actionsToAdd);
+    context.SaveChanges();
+
+    // Refresh the context to ensure we have up-to-date data
+    context.ChangeTracker.Clear();
+    superAdminRole = context.Roles.Include(r => r.AllowedActions).First(r => r.Name == "Super Admin");
+
+    var allModuleActions = context.ModuleActions.ToList();
+    foreach (var action in allModuleActions)
+    {
+        if (!superAdminRole.AllowedActions.Any(ma => ma.Id == action.Id))
+        {
+            superAdminRole.AllowedActions.Add(action);
+        }
+    }
+
+    try
+    {
+        context.SaveChanges();
+    }
+    catch (DbUpdateException ex)
+    {
+        // Log the error
+        Console.WriteLine($"Error occurred while saving changes: {ex.Message}");
+        // Optionally, you can rethrow the exception if you want it to propagate
+        // throw;
+    }
+}
+
+    private static IEnumerable<string> GetActionsForModule(ModuleName module)
+    {
+        return module switch
+        {
+            ModuleName.UserManagement => Enum.GetNames(typeof(ModuleActions.UserManagement)),
+            ModuleName.CommunityManagement
+                => Enum.GetNames(typeof(ModuleActions.CommunityManagement)),
+            _ => Enumerable.Empty<string>(),
+        };
     }
 
     private static void SeedSuperAdminUser(TenantDbContext context)
@@ -156,6 +151,28 @@ public static class DbSeeder
                 new UserRole { UserId = superAdminUser.Id, RoleId = superAdminRole.Id }
             );
 
+            context.SaveChanges();
+        }
+    }
+
+    private static void SeedProducts(TenantDbContext context)
+    {
+        if (!context.Products.Any())
+        {
+            context.Products.AddRange(
+                new Product
+                {
+                    Name = "Product 1",
+                    Price = 10.99m,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new Product
+                {
+                    Name = "Product 2",
+                    Price = 20.99m,
+                    CreatedAt = DateTime.UtcNow
+                }
+            );
             context.SaveChanges();
         }
     }

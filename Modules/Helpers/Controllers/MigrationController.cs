@@ -27,36 +27,68 @@ namespace StarterApi.Controllers
         [HttpPost("apply-migrations")]
         public async Task<IActionResult> ApplyMigrations()
         {
-            var tenants = await _tenantManagementContext.Tenants.ToListAsync();
-            foreach (var tenant in tenants)
+            try
             {
-                await ApplyTenantMigrations(tenant.ConnectionString);
+                var tenants = await _tenantManagementContext.Tenants.ToListAsync();
+                var results = new List<string>();
+
+                foreach (var tenant in tenants)
+                {
+                    var result = await _migrationService.MigrateSpecificTenantAsync(
+                        tenant.Identifier
+                    );
+                    results.Add(result);
+                }
+
+                return Ok(string.Join("\n", results));
             }
-            return Ok("Migrations applied to all tenant databases.");
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error applying migrations to all tenant databases");
+                return StatusCode(
+                    500,
+                    "An error occurred while applying migrations to tenant databases"
+                );
+            }
         }
 
         [HttpPost("apply-all")]
         public async Task<IActionResult> ApplyAllMigrations()
         {
-            var result = await _migrationService.MigrateAllTenantsAsync();
-            return Ok(result);
+            try
+            {
+                var result = await _migrationService.MigrateAllTenantsAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error applying migrations and seeding all tenant databases");
+                return StatusCode(
+                    500,
+                    "An error occurred while applying migrations and seeding tenant databases"
+                );
+            }
         }
 
-        private async Task ApplyTenantMigrations(string connectionString)
-        {
-            var optionsBuilder = new DbContextOptionsBuilder<TenantDbContext>();
-            optionsBuilder.UseSqlServer(connectionString);
-
-            using var context = new TenantDbContext(optionsBuilder.Options);
-            await context.Database.MigrateAsync();
-            _logger.LogInformation($"Migrations applied for tenant database: {connectionString}");
-        }
+        
+        
 
         [HttpPost("seed-tenant/{tenantId}")]
         public async Task<IActionResult> SeedTenantData(string tenantId)
         {
-            var result = await _migrationService.SeedTenantDataAsync(tenantId);
-            return Ok(result);
+            try
+            {
+                var result = await _migrationService.SeedTenantDataAsync(tenantId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error seeding data for tenant {tenantId}");
+                return StatusCode(
+                    500,
+                    $"An error occurred while seeding data for tenant {tenantId}"
+                );
+            }
         }
     }
 }

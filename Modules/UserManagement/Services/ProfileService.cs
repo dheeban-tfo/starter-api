@@ -19,7 +19,7 @@ public class ProfileService : IProfileService
         _logger = logger;
     }
 
-    public async Task<UserProfileResponse> GetUserProfileAsync(User user)
+     public async Task<UserProfileResponse> GetUserProfileAsync(User user)
     {
         _logger.LogInformation($"Getting profile for user: {user.Id}");
 
@@ -28,18 +28,17 @@ public class ProfileService : IProfileService
         var userRoles = await context.UserRoles
             .Where(ur => ur.UserId == user.Id)
             .Include(ur => ur.Role)
-            .ThenInclude(r => r.RoleModulePermissions)
-            .ThenInclude(rmp => rmp.Module)
+            .ThenInclude(rmp => rmp.AllowedActions)
             .ToListAsync();
 
         var roles = userRoles.Select(ur => ur.Role.Name).ToList();
 
         var modulePermissions = userRoles
-            .SelectMany(ur => ur.Role.RoleModulePermissions)
+            .SelectMany(ur => ur.Role.AllowedActions)
             .GroupBy(rmp => rmp.Module.Name)
             .ToDictionary(
                 g => g.Key,
-                g => g.Select(rmp => rmp.Permission).Distinct().ToList()
+                g => g.Select(rmp => rmp.Name).Distinct().ToList()
             );
 
         _logger.LogInformation($"Profile retrieved for user: {user.Id}. Roles: {string.Join(", ", roles)}");

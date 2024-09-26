@@ -7,13 +7,13 @@
         public List<RoleModulePermissionDTO> RoleModulePermissions { get; set; }
     }
 
-    public class RoleModulePermissionDTO
-    {
-        public int RoleId { get; set; }
-        public int ModuleId { get; set; }
-        public string Permission { get; set; }
-        public string ModuleName { get; set; }
-    }
+  public class RoleModulePermissionDTO
+{
+    public int RoleId { get; set; }
+    public int ModuleId { get; set; }
+    public string Action { get; set; }
+    public string ModuleName { get; set; }
+}
 
     public class UserRoleDTO
     {

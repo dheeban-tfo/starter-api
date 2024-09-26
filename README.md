@@ -146,3 +146,10 @@ Remember, the necessity of these additional features depends on your specific re
 
 dotnet ef migrations add InitialTenantManagementMigration -c TenantManagementDbContext
 dotnet ef migrations add InitialTenantMigration -c TenantDbContext
+
+
+---new
+
+dotnet ef migrations add InitialTenantManagementMigration -c TenantManagementDbContext
+
+dotnet ef migrations add InitialTenantMigration -c TenantDbContext  

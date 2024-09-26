@@ -15,7 +15,7 @@ public class TenantManagementDbContext : DbContext
     public DbSet<Role> Roles { get; set; }
     public DbSet<UserRole> UserRoles { get; set; }
     public DbSet<Module> Modules { get; set; }
-    public DbSet<RoleModulePermission> RoleModulePermissions { get; set; }
+    public DbSet<ModuleAction> ModuleActions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -38,17 +38,14 @@ public class TenantManagementDbContext : DbContext
             .WithMany(r => r.UserRoles)
             .HasForeignKey(ur => ur.RoleId);
 
-        modelBuilder.Entity<RoleModulePermission>()
-            .HasKey(rmp => new { rmp.RoleId, rmp.ModuleId, rmp.Permission });
+        modelBuilder.Entity<ModuleAction>()
+            .HasOne(ma => ma.Module)
+            .WithMany(m => m.Actions)
+            .HasForeignKey(ma => ma.ModuleId);
 
-        modelBuilder.Entity<RoleModulePermission>()
-            .HasOne(rmp => rmp.Role)
-            .WithMany(r => r.RoleModulePermissions)
-            .HasForeignKey(rmp => rmp.RoleId);
-
-        modelBuilder.Entity<RoleModulePermission>()
-            .HasOne(rmp => rmp.Module)
-            .WithMany(m => m.RoleModulePermissions)
-            .HasForeignKey(rmp => rmp.ModuleId);
+        modelBuilder.Entity<Role>()
+            .HasMany(r => r.AllowedActions)
+            .WithMany(ma => ma.Roles)
+            .UsingEntity(j => j.ToTable("RoleModuleActions"));
     }
 }

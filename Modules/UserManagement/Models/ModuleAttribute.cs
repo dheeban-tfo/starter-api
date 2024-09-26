@@ -1,17 +1,19 @@
-﻿namespace starterapi;
+﻿
 
-[AttributeUsage(AttributeTargets.Class, Inherited = false)]
+namespace starterapi;
+
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false)]
 public class ModuleAttribute : Attribute
 {
-    public string Name { get; }
+    public ModuleName Name { get; }
 
-    public ModuleAttribute(string name)
+    public ModuleAttribute(ModuleName name)
     {
         Name = name;
     }
 }
 
-[AttributeUsage(AttributeTargets.Method, Inherited = false)]
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
 public class PermissionAttribute : Attribute
 {
     public string Name { get; }
@@ -22,3 +24,9 @@ public class PermissionAttribute : Attribute
     }
 }
 
+// [Module(ModuleName.UserManagement)]
+// [Permission(nameof(ModuleActions.UserManagement.Create))]
+// public IActionResult CreateUser()
+// {
+//     // Method implementation
+// }

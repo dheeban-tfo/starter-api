@@ -74,24 +74,21 @@ public class JwtService : IJwtService
 
         // Add roles and permissions
         var userRoles = tenantDbContext.UserRoles
-            .Where(ur => ur.UserId == user.Id)
-            .Include(ur => ur.Role)
-            .ToList();
+        .Where(ur => ur.UserId == user.Id)
+        .Include(ur => ur.Role)
+        .ThenInclude(r => r.AllowedActions)
+        .ThenInclude(ma => ma.Module)
+        .ToList();
 
         foreach (var userRole in userRoles)
+    {
+        claims.Add(new Claim(ClaimTypes.Role, userRole.Role.Name));
+
+        foreach (var allowedAction in userRole.Role.AllowedActions)
         {
-            claims.Add(new Claim(ClaimTypes.Role, userRole.Role.Name));
-
-            var permissions = tenantDbContext.RoleModulePermissions
-                .Where(rmp => rmp.RoleId == userRole.RoleId)
-                .Include(rmp => rmp.Module)
-                .ToList();
-
-            foreach (var permission in permissions)
-            {
-                claims.Add(new Claim($"{userRole.Role.Name}-{permission.Module.Name}", permission.Permission));
-            }
+            claims.Add(new Claim($"{userRole.Role.Name}-{allowedAction.Module.Name}", allowedAction.Name));
         }
+    }
 
         _logger.LogInformation("Claims added to token:");
         foreach (var claim in claims)

@@ -22,6 +22,21 @@ namespace starterapi.Migrations.TenantManagementDb
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("ModuleActionRole", b =>
+                {
+                    b.Property<int>("AllowedActionsId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RolesId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AllowedActionsId", "RolesId");
+
+                    b.HasIndex("RolesId");
+
+                    b.ToTable("RoleModuleActions", (string)null);
+                });
+
             modelBuilder.Entity("starterapi.Models.Tenant", b =>
                 {
                     b.Property<int>("Id")
@@ -76,6 +91,28 @@ namespace starterapi.Migrations.TenantManagementDb
                     b.ToTable("Modules");
                 });
 
+            modelBuilder.Entity("starterapi.ModuleAction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ModuleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModuleId");
+
+                    b.ToTable("ModuleActions");
+                });
+
             modelBuilder.Entity("starterapi.Role", b =>
                 {
                     b.Property<int>("Id")
@@ -91,24 +128,6 @@ namespace starterapi.Migrations.TenantManagementDb
                     b.HasKey("Id");
 
                     b.ToTable("Roles");
-                });
-
-            modelBuilder.Entity("starterapi.RoleModulePermission", b =>
-                {
-                    b.Property<int>("RoleId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ModuleId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Permission")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("RoleId", "ModuleId", "Permission");
-
-                    b.HasIndex("ModuleId");
-
-                    b.ToTable("RoleModulePermissions");
                 });
 
             modelBuilder.Entity("starterapi.User", b =>
@@ -185,23 +204,30 @@ namespace starterapi.Migrations.TenantManagementDb
                     b.ToTable("UserRoles");
                 });
 
-            modelBuilder.Entity("starterapi.RoleModulePermission", b =>
+            modelBuilder.Entity("ModuleActionRole", b =>
+                {
+                    b.HasOne("starterapi.ModuleAction", null)
+                        .WithMany()
+                        .HasForeignKey("AllowedActionsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("starterapi.Role", null)
+                        .WithMany()
+                        .HasForeignKey("RolesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("starterapi.ModuleAction", b =>
                 {
                     b.HasOne("starterapi.Module", "Module")
-                        .WithMany("RoleModulePermissions")
+                        .WithMany("Actions")
                         .HasForeignKey("ModuleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("starterapi.Role", "Role")
-                        .WithMany("RoleModulePermissions")
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("Module");
-
-                    b.Navigation("Role");
                 });
 
             modelBuilder.Entity("starterapi.UserRole", b =>
@@ -225,13 +251,11 @@ namespace starterapi.Migrations.TenantManagementDb
 
             modelBuilder.Entity("starterapi.Module", b =>
                 {
-                    b.Navigation("RoleModulePermissions");
+                    b.Navigation("Actions");
                 });
 
             modelBuilder.Entity("starterapi.Role", b =>
                 {
-                    b.Navigation("RoleModulePermissions");
-
                     b.Navigation("UserRoles");
                 });
 

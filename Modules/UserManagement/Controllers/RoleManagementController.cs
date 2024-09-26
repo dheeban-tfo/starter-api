@@ -1,8 +1,8 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using starterapi.Services;
 using starterapi.DTOs;
+using starterapi.Services;
 
 namespace starterapi.Controllers
 {
@@ -13,7 +13,10 @@ namespace starterapi.Controllers
         private readonly ITenantDbContextAccessor _contextAccessor;
         private readonly ILogger<RoleManagementController> _logger;
 
-        public RoleManagementController(ITenantDbContextAccessor contextAccessor, ILogger<RoleManagementController> logger)
+        public RoleManagementController(
+            ITenantDbContextAccessor contextAccessor,
+            ILogger<RoleManagementController> logger
+        )
         {
             _contextAccessor = contextAccessor;
             _logger = logger;
@@ -37,89 +40,93 @@ namespace starterapi.Controllers
             return Ok(new RoleDTO { Id = role.Id, Name = role.Name });
         }
 
-        // Assign permission to role
+        [HttpGet("modules")]
+        public IActionResult GetModulesAndActions()
+        {
+            var modules = Enum.GetValues(typeof(ModuleName))
+                .Cast<ModuleName>()
+                .Select(m => new { Name = m.ToString(), Actions = GetActionsForModule(m) });
+
+            return Ok(modules);
+        }
+
         [HttpPost("AssignPermissionToRole")]
-        public async Task<ActionResult<RoleModulePermissionDTO>> AssignPermissionToRole([FromBody] AssignPermissionRequest request)
+        public async Task<ActionResult<RoleModulePermissionDTO>> AssignPermissionToRole(
+            [FromBody] AssignPermissionRequest request
+        )
         {
             var context = _contextAccessor.TenantDbContext;
             var role = await context.Roles.FindAsync(request.RoleId);
             if (role == null)
                 return NotFound("Role not found.");
 
-            var module = await context.Modules.FindAsync(request.ModuleId);
-            if (module == null)
-                return NotFound("Module not found.");
+            var moduleAction = await context
+                .ModuleActions.Include(ma => ma.Module)
+                .FirstOrDefaultAsync(ma =>
+                    ma.Module.Name == request.Module.ToString() && ma.Name == request.Action
+                );
+            if (moduleAction == null)
+                return NotFound("Module action not found.");
 
-            var permissionExists = await context.RoleModulePermissions.AnyAsync(rmp =>
-                rmp.RoleId == role.Id
-                && rmp.ModuleId == module.Id
-                && rmp.Permission == request.Permission
-            );
+            if (role.AllowedActions == null)
+                role.AllowedActions = new List<ModuleAction>();
 
-            if (permissionExists)
+            if (role.AllowedActions.Any(ma => ma.Id == moduleAction.Id))
                 return BadRequest("Permission already assigned to this role.");
 
-            var roleModulePermission = new RoleModulePermission
-            {
-                RoleId = role.Id,
-                ModuleId = module.Id,
-                Permission = request.Permission
-            };
-
-            context.RoleModulePermissions.Add(roleModulePermission);
+            role.AllowedActions.Add(moduleAction);
             await context.SaveChangesAsync();
 
-            return Ok(new RoleModulePermissionDTO
-            {
-                RoleId = roleModulePermission.RoleId,
-                ModuleId = roleModulePermission.ModuleId,
-                Permission = roleModulePermission.Permission,
-                ModuleName = module.Name
-            });
+            return Ok(
+                new RoleModulePermissionDTO
+                {
+                    RoleId = role.Id,
+                    ModuleId = moduleAction.ModuleId,
+                    Action = moduleAction.Name,
+                    ModuleName = moduleAction.Module.Name
+                }
+            );
         }
 
-        // Remove permission from role
         [HttpDelete("RemovePermissionFromRole")]
-        public async Task<ActionResult> RemovePermissionFromRole([FromBody] RemovePermissionRequest request)
+        public async Task<ActionResult> RemovePermissionFromRole(
+            [FromBody] RemovePermissionRequest request
+        )
         {
             var context = _contextAccessor.TenantDbContext;
-            var roleModulePermission = await context.RoleModulePermissions.FirstOrDefaultAsync(rmp =>
-                rmp.RoleId == request.RoleId
-                && rmp.ModuleId == request.ModuleId
-                && rmp.Permission == request.Permission
-            );
+            var role = await context
+                .Roles.Include(r => r.AllowedActions)
+                .ThenInclude(ma => ma.Module)
+                .FirstOrDefaultAsync(r => r.Id == request.RoleId);
+            if (role == null)
+                return NotFound("Role not found.");
 
-            if (roleModulePermission == null)
+            var moduleAction = role.AllowedActions.FirstOrDefault(ma =>
+                ma.Module.Name == request.Module.ToString() && ma.Name == request.Action
+            );
+            if (moduleAction == null)
                 return NotFound("Permission not found for this role.");
 
-            context.RoleModulePermissions.Remove(roleModulePermission);
+            role.AllowedActions.Remove(moduleAction);
             await context.SaveChangesAsync();
 
             return Ok();
         }
 
-        // Get all roles
         [HttpGet("GetRoles")]
         public async Task<ActionResult<IEnumerable<RoleDTO>>> GetRoles()
         {
             var context = _contextAccessor.TenantDbContext;
-            var roles = await context.Roles
-                .Include(r => r.RoleModulePermissions)
+            var roles = await context
+                .Roles.Include(r => r.AllowedActions)
+                .ThenInclude(rmp => rmp.Module)
+                .Include(r => r.AllowedActions)
                 .ThenInclude(rmp => rmp.Module)
                 .ToListAsync();
 
-            var roleDTOs = roles.Select(r => new RoleDTO
-            {
-                Id = r.Id,
-                Name = r.Name,
-                RoleModulePermissions = r.RoleModulePermissions.Select(rmp => new RoleModulePermissionDTO
-                {
-                    RoleId = rmp.RoleId,
-                    ModuleId = rmp.ModuleId,
-                    Permission = rmp.Permission,
-                    ModuleName = rmp.Module.Name
-                }).ToList()
-            }).ToList();
+            var roleDTOs = roles
+                .Select(r => new RoleDTO())
+                .ToList();
 
             return Ok(roleDTOs);
         }
@@ -129,36 +136,27 @@ namespace starterapi.Controllers
         public async Task<ActionResult<RoleDTO>> GetRole(int roleId)
         {
             var context = _contextAccessor.TenantDbContext;
-            var role = await context.Roles
-                .Include(r => r.RoleModulePermissions)
+            var role = await context
+                .Roles.Include(r => r.AllowedActions)
                 .ThenInclude(rmp => rmp.Module)
                 .FirstOrDefaultAsync(r => r.Id == roleId);
 
             if (role == null)
                 return NotFound("Role not found.");
 
-            var roleDTO = new RoleDTO
-            {
-                Id = role.Id,
-                Name = role.Name,
-                RoleModulePermissions = role.RoleModulePermissions.Select(rmp => new RoleModulePermissionDTO
-                {
-                    RoleId = rmp.RoleId,
-                    ModuleId = rmp.ModuleId,
-                    Permission = rmp.Permission,
-                    ModuleName = rmp.Module.Name
-                }).ToList()
-            };
-
+            var roleDTO = new RoleDTO();
             return Ok(roleDTO);
         }
 
         // Assign role to a user
         [HttpPost("AssignRoleToUser")]
-        public async Task<ActionResult<UserRoleDTO>> AssignRoleToUser([FromBody] AssignRoleToUserRequest request)
+        public async Task<ActionResult<UserRoleDTO>> AssignRoleToUser(
+            [FromBody] AssignRoleToUserRequest request
+        )
         {
             var context = _contextAccessor.TenantDbContext;
-            var user = await context.Users.Include(u => u.UserRoles)
+            var user = await context
+                .Users.Include(u => u.UserRoles)
                 .FirstOrDefaultAsync(u => u.Id == request.UserId);
             if (user == null)
                 return NotFound("User not found.");
@@ -177,17 +175,21 @@ namespace starterapi.Controllers
             user.UserRoles.Add(userRole);
             await context.SaveChangesAsync();
 
-            return Ok(new UserRoleDTO
-            {
-                UserId = userRole.UserId,
-                RoleId = userRole.RoleId,
-                RoleName = role.Name
-            });
+            return Ok(
+                new UserRoleDTO
+                {
+                    UserId = userRole.UserId,
+                    RoleId = userRole.RoleId,
+                    RoleName = role.Name
+                }
+            );
         }
 
         // Remove role from a user
         [HttpDelete("RemoveRoleFromUser")]
-        public async Task<ActionResult> RemoveRoleFromUser([FromBody] RemoveRoleFromUserRequest request)
+        public async Task<ActionResult> RemoveRoleFromUser(
+            [FromBody] RemoveRoleFromUserRequest request
+        )
         {
             var context = _contextAccessor.TenantDbContext;
             var userRole = await context.UserRoles.FirstOrDefaultAsync(ur =>
@@ -201,6 +203,17 @@ namespace starterapi.Controllers
 
             return Ok();
         }
+
+        private IEnumerable<string> GetActionsForModule(ModuleName module)
+        {
+            return module switch
+            {
+                ModuleName.UserManagement => Enum.GetNames(typeof(ModuleActions.UserManagement)),
+                ModuleName.CommunityManagement
+                    => Enum.GetNames(typeof(ModuleActions.CommunityManagement)),
+                _ => Enumerable.Empty<string>(),
+            };
+        }
     }
 
     public class CreateRoleRequest
@@ -211,15 +224,15 @@ namespace starterapi.Controllers
     public class AssignPermissionRequest
     {
         public int RoleId { get; set; }
-        public int ModuleId { get; set; }
-        public string Permission { get; set; }
+        public ModuleName Module { get; set; }
+        public string Action { get; set; }
     }
 
     public class RemovePermissionRequest
     {
         public int RoleId { get; set; }
-        public int ModuleId { get; set; }
-        public string Permission { get; set; }
+        public ModuleName Module { get; set; }
+        public string Action { get; set; }
     }
 
     public class AssignRoleToUserRequest

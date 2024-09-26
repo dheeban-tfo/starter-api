@@ -172,8 +172,7 @@ public static class TenantSeeder
         {
             var roles = new List<Role>
             {
-                new Role { Name = "Root" },
-                new Role { Name = "Admin" }
+                new Role { Name = "Root Admin" }
             };
 
             context.Roles.AddRange(roles);
@@ -183,7 +182,7 @@ public static class TenantSeeder
         // Seed root admin if it doesn't exist
         if (!context.Users.Any(u => u.Email == "rootadmin@example.com"))
         {
-            var rootRole = context.Roles.FirstOrDefault(r => r.Name == "Root");
+            var rootRole = context.Roles.FirstOrDefault(r => r.Name == "Root Admin");
             if (rootRole == null)
             {
                 logger.LogError("Root role not found. Cannot create root admin.");

@@ -281,7 +281,7 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(
         "PermissionPolicy",
-        policy => policy.Requirements.Add(new PermissionRequirement(null, null))
+        policy => policy.Requirements.Add(new PermissionRequirement())
     );
 });
 
@@ -412,7 +412,7 @@ using (var scope = app.Services.CreateScope())
         var monitoringApi = storage.GetMonitoringApi();
 
         logger.LogInformation("Starting tenant seeding process...");
-        //TenantSeeder.SeedTenants(services);
+        TenantSeeder.SeedTenants(services);
         logger.LogInformation("Tenant seeding process completed successfully.");
     }
     catch (Exception ex)

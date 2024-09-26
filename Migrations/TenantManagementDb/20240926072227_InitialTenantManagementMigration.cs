@@ -82,26 +82,21 @@ namespace starterapi.Migrations.TenantManagementDb
                 });
 
             migrationBuilder.CreateTable(
-                name: "RoleModulePermissions",
+                name: "ModuleActions",
                 columns: table => new
                 {
-                    RoleId = table.Column<int>(type: "int", nullable: false),
-                    ModuleId = table.Column<int>(type: "int", nullable: false),
-                    Permission = table.Column<string>(type: "nvarchar(450)", nullable: false)
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ModuleId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_RoleModulePermissions", x => new { x.RoleId, x.ModuleId, x.Permission });
+                    table.PrimaryKey("PK_ModuleActions", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_RoleModulePermissions_Modules_ModuleId",
+                        name: "FK_ModuleActions_Modules_ModuleId",
                         column: x => x.ModuleId,
                         principalTable: "Modules",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_RoleModulePermissions_Roles_RoleId",
-                        column: x => x.RoleId,
-                        principalTable: "Roles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -130,10 +125,39 @@ namespace starterapi.Migrations.TenantManagementDb
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "RoleModuleActions",
+                columns: table => new
+                {
+                    AllowedActionsId = table.Column<int>(type: "int", nullable: false),
+                    RolesId = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RoleModuleActions", x => new { x.AllowedActionsId, x.RolesId });
+                    table.ForeignKey(
+                        name: "FK_RoleModuleActions_ModuleActions_AllowedActionsId",
+                        column: x => x.AllowedActionsId,
+                        principalTable: "ModuleActions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_RoleModuleActions_Roles_RolesId",
+                        column: x => x.RolesId,
+                        principalTable: "Roles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.CreateIndex(
-                name: "IX_RoleModulePermissions_ModuleId",
-                table: "RoleModulePermissions",
+                name: "IX_ModuleActions_ModuleId",
+                table: "ModuleActions",
                 column: "ModuleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RoleModuleActions_RolesId",
+                table: "RoleModuleActions",
+                column: "RolesId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Tenants_Identifier",
@@ -151,7 +175,7 @@ namespace starterapi.Migrations.TenantManagementDb
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "RoleModulePermissions");
+                name: "RoleModuleActions");
 
             migrationBuilder.DropTable(
                 name: "Tenants");
@@ -160,13 +184,16 @@ namespace starterapi.Migrations.TenantManagementDb
                 name: "UserRoles");
 
             migrationBuilder.DropTable(
-                name: "Modules");
+                name: "ModuleActions");
 
             migrationBuilder.DropTable(
                 name: "Roles");
 
             migrationBuilder.DropTable(
                 name: "Users");
+
+            migrationBuilder.DropTable(
+                name: "Modules");
         }
     }
 }
