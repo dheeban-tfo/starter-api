@@ -9,7 +9,7 @@ namespace StarterApi.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Root,Admin")]
+    [Module(ModuleName.CommunityManagement)]
     public class CommunityController : ControllerBase
     {
         private readonly ICommunityRepository _communityRepository;
@@ -140,6 +140,8 @@ namespace StarterApi.Controllers
         }
 
         [HttpGet("statistics")]
+        [Authorize(Policy = "PermissionPolicy")]
+        [Permission(nameof(ModuleActions.CommunityManagement.Read))]
         public async Task<ActionResult<CommunityStatisticsDto>> GetCommunityStatistics()
         {
             try

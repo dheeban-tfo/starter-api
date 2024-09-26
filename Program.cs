@@ -168,8 +168,12 @@ builder.Services.AddDbContextFactory<TenantDbContext>(options =>
 // Add the processing server as IHostedService
 builder.Services.AddHangfireServer();
 builder.Services.AddScoped<IJwtService, JwtService>();
-builder.Services.AddScoped<ITenantDbContextAccessor, TenantDbContextAccessor>();
+
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+
+builder.Services.AddScoped<ICommunityRepository, CommunityRepository>();
+
+builder.Services.AddScoped<ITenantDbContextAccessor, TenantDbContextAccessor>();
 
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<IProfileService, ProfileService>();
@@ -186,6 +190,8 @@ builder.Services.AddScoped<IUnitRepository, UnitRepository>();
 // Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
+
+//var app = builder.Build();
 
 // Configure JWT Authentication
 // Check JWT configuration
@@ -371,6 +377,7 @@ app.UseHangfireDashboard(
     new DashboardOptions { Authorization = new[] { new HangfireAuthorizationFilter() } }
 );
 
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
