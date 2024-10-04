@@ -4,6 +4,11 @@ using starterapi;
 using starterapi.Models;
 using StarterApi.Models;
 using StarterApi.Repositories;
+using System.IO;
+using CsvHelper;
+using System.Globalization;
+using Microsoft.AspNetCore.Http;
+using System.Security.Claims; 
 
 namespace StarterApi.Controllers
 {
@@ -70,15 +75,41 @@ namespace StarterApi.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Community>> CreateCommunity(Community community)
+        [Authorize(Roles = "Admin,Super Admin")]
+        [Permission(nameof(ModuleActions.CommunityManagement.Create))]
+        public async Task<ActionResult<CommunityDto>> CreateCommunity(CommunityDto communityDto)
         {
-            community.CreatedAt = DateTime.UtcNow;
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("User ID not found in token");
+            }
+
+            var community = new Community
+            {
+                Name = communityDto.Name,
+                Address = communityDto.Address,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = userId,
+                ModifiedAt = DateTime.UtcNow,
+                ModifiedBy = userId,
+                IsActive = true,
+                Version = DateTime.UtcNow.Ticks
+            };
+
             var createdCommunity = await _communityRepository.CreateAsync(community);
+            
+            var createdCommunityDto = new CommunityDto
+            {
+                Id = createdCommunity.Id,
+                Name = createdCommunity.Name,
+                Address = createdCommunity.Address
+            };
+
             return CreatedAtAction(
                 nameof(GetCommunity),
-                new { id = createdCommunity.Id },
-                createdCommunity
+                new { id = createdCommunityDto.Id },
+                createdCommunityDto
             );
         }
 
@@ -171,6 +202,33 @@ namespace StarterApi.Controllers
                     500,
                     "An error occurred while retrieving basic community statistics"
                 );
+            }
+        }
+
+        [HttpPost("{communityId}/import")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ImportCommunityData(int communityId, IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest("File is empty");
+            }
+
+            try
+            {
+                using (var reader = new StreamReader(file.OpenReadStream()))
+                using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
+                {
+                    var records = csv.GetRecords<CommunityImportDto>().ToList();
+                    await _communityRepository.ImportCommunityDataAsync(communityId, records);
+                }
+
+                return Ok("Data imported successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error importing community data");
+                return StatusCode(500, "An error occurred while importing community data");
             }
         }
     }

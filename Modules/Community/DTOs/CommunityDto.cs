@@ -85,3 +85,16 @@ public class CommunityBasicStatsDto
     public int BlockCount { get; set; }
     public int UnitCount { get; set; }
 }
+
+public class CommunityImportDto
+{
+    public string BlockName { get; set; }
+    public int FloorNumber { get; set; }
+    public string UnitNumber { get; set; }
+    public UnitType UnitType { get; set; }
+    public string OwnerName { get; set; }
+    public string ContactNumber { get; set; }
+    public string Email { get; set; }
+    public DateTime PurchaseDate { get; set; }
+    public decimal OwnershipPercentage { get; set; }
+}

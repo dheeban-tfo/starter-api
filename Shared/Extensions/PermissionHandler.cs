@@ -46,6 +46,8 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
     )
     {
         _logger.LogInformation("Starting permission check");
+    _logger.LogInformation("Required permission: {Module}_{Action}", requirement.Module, requirement.Action);
+
 
         
             if (context.User.Identity == null || !context.User.Identity.IsAuthenticated)

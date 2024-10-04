@@ -17,5 +17,6 @@ namespace StarterApi.Repositories
         Task<CommunityFullDto> GetCommunityFullAsync(int id);
         Task<CommunityStatisticsDto> GetCommunityStatisticsAsync();
         Task<List<CommunityBasicStatsDto>> GetAllCommunityBasicStatsAsync();
+        Task ImportCommunityDataAsync(int communityId, List<CommunityImportDto> importData);
     }
 }

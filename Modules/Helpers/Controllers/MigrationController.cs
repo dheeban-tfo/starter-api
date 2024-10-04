@@ -24,7 +24,7 @@ namespace StarterApi.Controllers
             _migrationService = migrationService;
         }
 
-        [HttpPost("apply-migrations")]
+        [HttpPost("apply-migrations-dont-use")]
         public async Task<IActionResult> ApplyMigrations()
         {
             try

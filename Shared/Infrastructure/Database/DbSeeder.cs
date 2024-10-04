@@ -138,6 +138,7 @@ public static class DbSeeder
                 FirstName = "Super",
                 LastName = "Admin",
                 Email = "superadmin@example.com",
+                PhoneNumber="1234567890",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("SuperAdminPassword123"),
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,

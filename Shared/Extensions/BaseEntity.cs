@@ -9,7 +9,7 @@ namespace StarterApi.Models
         public string CreatedBy { get; set; }
         public DateTime? ModifiedAt { get; set; }
         public string ModifiedBy { get; set; }
-        public int Version { get; set; }
         public bool IsActive { get; set; } = true;
+        public long Version { get; set; } = 1;
     }
 }

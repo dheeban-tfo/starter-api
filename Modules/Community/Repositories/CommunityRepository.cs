@@ -261,5 +261,108 @@ namespace StarterApi.Repositories
         })
         .ToListAsync();
 }
+
+        public async Task ImportCommunityDataAsync(int communityId, List<CommunityImportDto> importData)
+        {
+            var context = _contextAccessor.TenantDbContext;
+
+            var community = await context.Communities
+                .Include(c => c.Blocks)
+                .ThenInclude(b => b.Floors)
+                .ThenInclude(f => f.Units)
+                .ThenInclude(u => u.UnitOwnerships)
+                .FirstOrDefaultAsync(c => c.Id == communityId);
+
+            if (community == null)
+            {
+                throw new ArgumentException("Community not found", nameof(communityId));
+            }
+
+            foreach (var blockGroup in importData.GroupBy(x => x.BlockName))
+            {
+                var block = community.Blocks.FirstOrDefault(b => b.Name == blockGroup.Key);
+                if (block == null)
+                {
+                    block = new Block
+                    {
+                        Name = blockGroup.Key,
+                        Floors = new List<Floor>()
+                    };
+                    community.Blocks.Add(block);
+                }
+
+                foreach (var floorGroup in blockGroup.GroupBy(x => x.FloorNumber))
+                {
+                    var floor = block.Floors.FirstOrDefault(f => f.FloorNumber == floorGroup.Key);
+                    if (floor == null)
+                    {
+                        floor = new Floor
+                        {
+                            FloorNumber = floorGroup.Key,
+                            Units = new List<Unit>()
+                        };
+                        block.Floors.Add(floor);
+                    }
+
+                    foreach (var unitData in floorGroup)
+                    {
+                        var unit = floor.Units.FirstOrDefault(u => u.UnitNumber == unitData.UnitNumber);
+                        if (unit == null)
+                        {
+                            unit = new Unit
+                            {
+                                UnitNumber = unitData.UnitNumber,
+                                Type = unitData.UnitType,
+                                UnitOwnerships = new List<UnitOwnership>()
+                            };
+                            floor.Units.Add(unit);
+                        }
+
+                        // Find or create user
+                        var user = await FindOrCreateUserAsync(unitData.OwnerName, unitData.ContactNumber, unitData.Email);
+
+                        // Create or update UnitOwnership
+                        var ownership = unit.UnitOwnerships.FirstOrDefault(uo => uo.UserId == user.Id);
+                        if (ownership == null)
+                        {
+                            ownership = new UnitOwnership
+                            {
+                                UserId = user.Id,
+                                OwnershipStartDate = unitData.PurchaseDate,
+                                OwnershipPercentage = unitData.OwnershipPercentage
+                            };
+                            unit.UnitOwnerships.Add(ownership);
+                        }
+                        else
+                        {
+                            ownership.OwnershipStartDate = unitData.PurchaseDate;
+                            ownership.OwnershipPercentage = unitData.OwnershipPercentage;
+                        }
+                    }
+                }
+            }
+
+            await context.SaveChangesAsync();
+        }
+
+        private async Task<User> FindOrCreateUserAsync(string name, string contactNumber, string email)
+        {
+            var user = await _contextAccessor.TenantDbContext.Users
+                .FirstOrDefaultAsync(u => u.PhoneNumber == contactNumber || u.Email == email);
+
+            if (user == null)
+            {
+                user = new User
+                {
+                     Email = email,
+                    PhoneNumber = contactNumber,
+                    FirstName = name
+                };
+                _contextAccessor.TenantDbContext.Users.Add(user);
+                await _contextAccessor.TenantDbContext.SaveChangesAsync();
+            }
+
+            return user;
+        }
     }
 }

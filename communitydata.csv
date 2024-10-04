@@ -1,0 +1,7 @@
+BlockName,FloorNumber,UnitNumber,UnitType,OwnerName,ContactNumber,OwnerEmail,OwnershipStartDate,OwnershipEndDate,OwnershipPercentage
+Block A,1,A101,TwoBHK,John Doe,+1234567890,john.doe@example.com,2023-01-15,2028-01-14,100
+Block A,1,A102,OneBHK,Jane Smith,+1987654321,jane.smith@example.com,2023-02-20,,75.5
+Block A,2,A201,ThreeBHK,Alice Johnson,+1122334455,alice.johnson@example.com,2023-03-10,2025-03-09,100
+Block B,1,B101,Studio,Bob Williams,+1555666777,bob.williams@example.com,2023-04-05,,50
+Block B,1,B102,TwoBHK,Charlie Brown,+1999888777,charlie.brown@example.com,2023-05-12,2026-05-11,100
+Block B,2,B201,ThreeBHK,David Miller,+1444333222,david.miller@example.com,2023-06-18,,80
