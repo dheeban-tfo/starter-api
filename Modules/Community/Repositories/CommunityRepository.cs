@@ -5,16 +5,20 @@ using starterapi.Models;
 using StarterApi.Models;
 using starterapi.Repositories;
 using starterapi.Services;
+using StarterApi.Helpers;
+using Microsoft.AspNetCore.Identity;
 
 namespace StarterApi.Repositories
 {
     public class CommunityRepository : ICommunityRepository
     {
         private readonly ITenantDbContextAccessor _contextAccessor;
+        private readonly IPasswordHasher<User> _passwordHasher;
 
-        public CommunityRepository(ITenantDbContextAccessor contextAccessor)
+        public CommunityRepository(ITenantDbContextAccessor contextAccessor, IPasswordHasher<User> passwordHasher)
         {
             _contextAccessor = contextAccessor;
+            _passwordHasher = passwordHasher;
         }
 
         public async Task<CommunityDto> GetByIdAsync(int id)
@@ -195,82 +199,87 @@ namespace StarterApi.Repositories
                 .FirstOrDefaultAsync();
         }
 
-       public async Task<CommunityStatisticsDto> GetCommunityStatisticsAsync()
-{
-    var context = _contextAccessor.TenantDbContext;
-
-    var totalCommunities = await context.Communities.CountAsync();
-    var totalBlocks = await context.Blocks.CountAsync();
-    var totalUnits = await context.Units.CountAsync();
-
-    var communityStats = await context.Communities
-        .Select(c => new
-        {
-            c.Id,
-            c.Name,
-            BlockCount = c.Blocks.Count(),
-            UnitCount = c.Blocks.SelectMany(b => b.Floors).SelectMany(f => f.Units).Count()
-        })
-        .ToListAsync();
-
-    var mostPopulousCommunity = communityStats
-        .OrderByDescending(c => c.UnitCount)
-        .FirstOrDefault();
-
-    var communityWithMostBlocks = communityStats
-        .OrderByDescending(c => c.BlockCount)
-        .FirstOrDefault();
-
-    return new CommunityStatisticsDto
-    {
-        TotalCommunities = totalCommunities,
-        TotalBlocks = totalBlocks,
-        TotalUnits = totalUnits,
-        AverageBlocksPerCommunity = totalCommunities > 0 ? (double)totalBlocks / totalCommunities : 0,
-        AverageUnitsPerCommunity = totalCommunities > 0 ? (double)totalUnits / totalCommunities : 0,
-        MostPopulousCommunity = mostPopulousCommunity != null
-            ? new CommunityBasicStatsDto
-            {
-                Id = mostPopulousCommunity.Id,
-                Name = mostPopulousCommunity.Name,
-                UnitCount = mostPopulousCommunity.UnitCount
-            }
-            : null,
-        CommunityWithMostBlocks = communityWithMostBlocks != null
-            ? new CommunityBasicStatsDto
-            {
-                Id = communityWithMostBlocks.Id,
-                Name = communityWithMostBlocks.Name,
-                BlockCount = communityWithMostBlocks.BlockCount
-            }
-            : null
-    };
-}
-
-        public async Task<List<CommunityBasicStatsDto>> GetAllCommunityBasicStatsAsync()
-{
-    var context = _contextAccessor.TenantDbContext;
-
-    return await context.Communities
-        .Select(c => new CommunityBasicStatsDto
-        {
-            Id = c.Id,
-            Name = c.Name,
-            BlockCount = c.Blocks.Count(),
-            UnitCount = c.Blocks.SelectMany(b => b.Floors).SelectMany(f => f.Units).Count()
-        })
-        .ToListAsync();
-}
-
-        public async Task ImportCommunityDataAsync(int communityId, List<CommunityImportDto> importData)
+        public async Task<CommunityStatisticsDto> GetCommunityStatisticsAsync()
         {
             var context = _contextAccessor.TenantDbContext;
 
-            var community = await context.Communities
+            var totalCommunities = await context.Communities.CountAsync();
+            var totalBlocks = await context.Blocks.CountAsync();
+            var totalUnits = await context.Units.CountAsync();
+
+            var communityStats = await context
+                .Communities.Select(c => new
+                {
+                    c.Id,
+                    c.Name,
+                    BlockCount = c.Blocks.Count(),
+                    UnitCount = c.Blocks.SelectMany(b => b.Floors).SelectMany(f => f.Units).Count()
+                })
+                .ToListAsync();
+
+            var mostPopulousCommunity = communityStats
+                .OrderByDescending(c => c.UnitCount)
+                .FirstOrDefault();
+
+            var communityWithMostBlocks = communityStats
+                .OrderByDescending(c => c.BlockCount)
+                .FirstOrDefault();
+
+            return new CommunityStatisticsDto
+            {
+                TotalCommunities = totalCommunities,
+                TotalBlocks = totalBlocks,
+                TotalUnits = totalUnits,
+                AverageBlocksPerCommunity =
+                    totalCommunities > 0 ? (double)totalBlocks / totalCommunities : 0,
+                AverageUnitsPerCommunity =
+                    totalCommunities > 0 ? (double)totalUnits / totalCommunities : 0,
+                MostPopulousCommunity =
+                    mostPopulousCommunity != null
+                        ? new CommunityBasicStatsDto
+                        {
+                            Id = mostPopulousCommunity.Id,
+                            Name = mostPopulousCommunity.Name,
+                            UnitCount = mostPopulousCommunity.UnitCount
+                        }
+                        : null,
+                CommunityWithMostBlocks =
+                    communityWithMostBlocks != null
+                        ? new CommunityBasicStatsDto
+                        {
+                            Id = communityWithMostBlocks.Id,
+                            Name = communityWithMostBlocks.Name,
+                            BlockCount = communityWithMostBlocks.BlockCount
+                        }
+                        : null
+            };
+        }
+
+        public async Task<List<CommunityBasicStatsDto>> GetAllCommunityBasicStatsAsync()
+        {
+            var context = _contextAccessor.TenantDbContext;
+
+            return await context
+                .Communities.Select(c => new CommunityBasicStatsDto
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    BlockCount = c.Blocks.Count(),
+                    UnitCount = c.Blocks.SelectMany(b => b.Floors).SelectMany(f => f.Units).Count()
+                })
+                .ToListAsync();
+        }
+
+        public async Task ImportCommunityDataAsync(
+            int communityId,
+            List<CommunityImportDto> importData
+        )
+        {
+            var community = await _contextAccessor.TenantDbContext.Communities
                 .Include(c => c.Blocks)
-                .ThenInclude(b => b.Floors)
-                .ThenInclude(f => f.Units)
-                .ThenInclude(u => u.UnitOwnerships)
+                    .ThenInclude(b => b.Floors)
+                        .ThenInclude(f => f.Units)
+                            .ThenInclude(u => u.UnitOwnerships)
                 .FirstOrDefaultAsync(c => c.Id == communityId);
 
             if (community == null)
@@ -278,15 +287,30 @@ namespace StarterApi.Repositories
                 throw new ArgumentException("Community not found", nameof(communityId));
             }
 
+            var userId = UserContext.CurrentUserId;
+            if (string.IsNullOrEmpty(userId))
+            {
+                throw new InvalidOperationException("User ID not found in the current context");
+            }
+
+            if (importData == null || !importData.Any())
+            {
+                throw new ArgumentException("Import data is empty or null", nameof(importData));
+            }
+
             foreach (var blockGroup in importData.GroupBy(x => x.BlockName))
             {
                 var block = community.Blocks.FirstOrDefault(b => b.Name == blockGroup.Key);
                 if (block == null)
                 {
-                    block = new Block
-                    {
-                        Name = blockGroup.Key,
-                        Floors = new List<Floor>()
+                    block = new Block 
+                    { 
+                        Name = blockGroup.Key, 
+                        Floors = new List<Floor>(),
+                        CreatedBy = userId,
+                        ModifiedBy = userId,
+                        CreatedAt = DateTime.UtcNow,
+                        ModifiedAt = DateTime.UtcNow
                     };
                     community.Blocks.Add(block);
                 }
@@ -299,7 +323,11 @@ namespace StarterApi.Repositories
                         floor = new Floor
                         {
                             FloorNumber = floorGroup.Key,
-                            Units = new List<Unit>()
+                            Units = new List<Unit>(),
+                            CreatedBy = userId,
+                            ModifiedBy = userId,
+                            CreatedAt = DateTime.UtcNow,
+                            ModifiedAt = DateTime.UtcNow
                         };
                         block.Floors.Add(floor);
                     }
@@ -313,13 +341,21 @@ namespace StarterApi.Repositories
                             {
                                 UnitNumber = unitData.UnitNumber,
                                 Type = unitData.UnitType,
-                                UnitOwnerships = new List<UnitOwnership>()
+                                UnitOwnerships = new List<UnitOwnership>(),
+                                CreatedBy = userId,
+                                ModifiedBy = userId,
+                                CreatedAt = DateTime.UtcNow,
+                                ModifiedAt = DateTime.UtcNow
                             };
                             floor.Units.Add(unit);
                         }
 
                         // Find or create user
-                        var user = await FindOrCreateUserAsync(unitData.OwnerName, unitData.ContactNumber, unitData.Email);
+                        var user = await FindOrCreateUserAsync(
+                            unitData.OwnerName,
+                            unitData.ContactNumber,
+                            unitData.OwnerEmail
+                        );
 
                         // Create or update UnitOwnership
                         var ownership = unit.UnitOwnerships.FirstOrDefault(uo => uo.UserId == user.Id);
@@ -328,36 +364,68 @@ namespace StarterApi.Repositories
                             ownership = new UnitOwnership
                             {
                                 UserId = user.Id,
-                                OwnershipStartDate = unitData.PurchaseDate,
-                                OwnershipPercentage = unitData.OwnershipPercentage
+                                OwnershipStartDate = unitData.OwnershipStartDate,
+                                OwnershipEndDate = unitData.OwnershipEndDate,
+                                OwnershipPercentage = unitData.OwnershipPercentage,
+                                CreatedBy = userId,
+                                ModifiedBy = userId,
+                                CreatedAt = DateTime.UtcNow,
+                                ModifiedAt = DateTime.UtcNow
                             };
                             unit.UnitOwnerships.Add(ownership);
                         }
                         else
                         {
-                            ownership.OwnershipStartDate = unitData.PurchaseDate;
+                            ownership.OwnershipStartDate = unitData.OwnershipStartDate;
+                            ownership.OwnershipEndDate = unitData.OwnershipEndDate;
                             ownership.OwnershipPercentage = unitData.OwnershipPercentage;
+                            ownership.ModifiedBy = userId;
+                            ownership.ModifiedAt = DateTime.UtcNow;
                         }
                     }
                 }
             }
 
-            await context.SaveChangesAsync();
+            await _contextAccessor.TenantDbContext.SaveChangesAsync();
         }
 
-        private async Task<User> FindOrCreateUserAsync(string name, string contactNumber, string email)
+        private async Task<User> FindOrCreateUserAsync(
+            string name,
+            string contactNumber,
+            string email
+        )
         {
-            var user = await _contextAccessor.TenantDbContext.Users
-                .FirstOrDefaultAsync(u => u.PhoneNumber == contactNumber || u.Email == email);
+            var user = await _contextAccessor.TenantDbContext.Users.FirstOrDefaultAsync(u =>
+                u.PhoneNumber == contactNumber || u.Email == email
+            );
 
             if (user == null)
             {
+                var userId = UserContext.CurrentUserId;
+                if (string.IsNullOrEmpty(userId))
+                {
+                    throw new InvalidOperationException("User ID not found in the current context");
+                }
+
                 user = new User
                 {
-                     Email = email,
-                    PhoneNumber = contactNumber,
-                    FirstName = name
+                    Email = email ?? throw new ArgumentNullException(nameof(email)),
+                    PhoneNumber = contactNumber ?? throw new ArgumentNullException(nameof(contactNumber)),
+                    FirstName = name ?? throw new ArgumentNullException(nameof(name)),
+                    LastName = "", // Add a default value or split the name if possible
+                    CreatedAt = DateTime.UtcNow,
+                    IsActive = true,
+                   // UserName = email, // Set username to email
+                    PasswordHash = _passwordHasher.HashPassword(null, "DefaultPassword123!"), // Set a default password hash
+                    // Add any other required fields here
                 };
+
+                // If these fields are required in your database, uncomment and set them
+                // user.CreatedBy = userId;
+                // user.ModifiedBy = userId;
+                // user.ModifiedAt = DateTime.UtcNow;
+                // user.Version = DateTime.UtcNow.Ticks;
+
                 _contextAccessor.TenantDbContext.Users.Add(user);
                 await _contextAccessor.TenantDbContext.SaveChangesAsync();
             }

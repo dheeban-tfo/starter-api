@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using starterapi.Services;
+using StarterApi.Helpers;
 
 namespace starterapi;
 
@@ -45,13 +46,17 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
         PermissionRequirement requirement
     )
     {
-        _logger.LogInformation("Starting permission check");
+         _logger.LogInformation("Starting permission check");
+        _logger.LogInformation($"Evaluating authorization for user: {context.User.Identity?.Name}");
+
+       
     _logger.LogInformation("Required permission: {Module}_{Action}", requirement.Module, requirement.Action);
 
 
         
             if (context.User.Identity == null || !context.User.Identity.IsAuthenticated)
             {
+                 _logger.LogWarning("User is not authenticated");
                 throw new UserNotAuthenticatedException();
             }
 
@@ -63,8 +68,9 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
                 throw new MissingTenantIdException();
             }
 
-           var httpContext = _httpContextAccessor.HttpContext;
-        var endpoint = httpContext?.GetEndpoint();
+            UserContext.CurrentUserId = userId;
+            var httpContext = _httpContextAccessor.HttpContext;
+            var endpoint = httpContext?.GetEndpoint();
         var moduleAttribute = endpoint?.Metadata.GetMetadata<ModuleAttribute>();
         var permissionAttribute = endpoint?.Metadata.GetMetadata<PermissionAttribute>();
 

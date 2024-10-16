@@ -8,7 +8,9 @@ using System.IO;
 using CsvHelper;
 using System.Globalization;
 using Microsoft.AspNetCore.Http;
-using System.Security.Claims; 
+using System.Security.Claims;
+using CsvHelper.Configuration;
+using StarterApi.Helpers;
 
 namespace StarterApi.Controllers
 {
@@ -27,6 +29,16 @@ namespace StarterApi.Controllers
         {
             _communityRepository = communityRepository;
             _logger = logger;
+        }
+
+        [NonAction]
+        private void SetCurrentUserId()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                UserContext.CurrentUserId = userId;
+            }
         }
 
         [HttpGet("{id}")]
@@ -206,29 +218,39 @@ namespace StarterApi.Controllers
         }
 
         [HttpPost("{communityId}/import")]
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Super Admin")]
         public async Task<IActionResult> ImportCommunityData(int communityId, IFormFile file)
         {
+            _logger.LogInformation($"Attempting to import data for community {communityId}");
+
+            SetCurrentUserId();
+            
             if (file == null || file.Length == 0)
             {
+                _logger.LogWarning("File is empty or null");
                 return BadRequest("File is empty");
             }
 
             try
             {
                 using (var reader = new StreamReader(file.OpenReadStream()))
-                using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
+                using (var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture)
+                {
+                    HeaderValidated = null,
+                    MissingFieldFound = null
+                }))
                 {
                     var records = csv.GetRecords<CommunityImportDto>().ToList();
                     await _communityRepository.ImportCommunityDataAsync(communityId, records);
                 }
 
+                _logger.LogInformation($"Successfully imported data for community {communityId}");
                 return Ok("Data imported successfully");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error importing community data");
-                return StatusCode(500, "An error occurred while importing community data");
+                _logger.LogError(ex, $"Error importing community data for community {communityId}");
+                return StatusCode(500, $"An error occurred while importing community data: {ex.Message}");
             }
         }
     }

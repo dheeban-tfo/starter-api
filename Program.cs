@@ -25,6 +25,7 @@ using starterapi.Repositories;
 using starterapi.Services;
 using StarterApi.Repositories;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -310,6 +311,8 @@ builder.Services.Configure<IpRateLimitPolicies>(
     builder.Configuration.GetSection("IpRateLimitPolicies")
 );
 builder.Services.AddInMemoryRateLimiting();
+
+builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
 // Register dependencies for rate limiting
 builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();

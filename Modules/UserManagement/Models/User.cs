@@ -2,10 +2,11 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using starterapi.Repositories;
+using StarterApi.Models;
 
 namespace starterapi;
 
-public class User
+public class User 
 {
     public int Id { get; set; }
 

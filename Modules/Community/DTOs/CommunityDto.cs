@@ -94,7 +94,8 @@ public class CommunityImportDto
     public UnitType UnitType { get; set; }
     public string OwnerName { get; set; }
     public string ContactNumber { get; set; }
-    public string Email { get; set; }
-    public DateTime PurchaseDate { get; set; }
+    public string OwnerEmail { get; set; }  
+    public DateTime OwnershipStartDate { get; set; }  
+    public DateTime? OwnershipEndDate { get; set; }
     public decimal OwnershipPercentage { get; set; }
 }
