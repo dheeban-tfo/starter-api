@@ -41,6 +41,9 @@ public class TenantDbContext : DbContext
 
     public DbSet<Product> Products { get; set; }
 
+     public DbSet<Facility> Facilities { get; set; }
+    public DbSet<FacilityBooking> FacilityBookings { get; set; }
+
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         var auditEntries = OnBeforeSaveChanges();
@@ -196,6 +199,24 @@ public class TenantDbContext : DbContext
 
         // Configure Product Price
         modelBuilder.Entity<Product>().Property(p => p.Price).HasColumnType("decimal(18,2)");
+
+         modelBuilder.Entity<Facility>()
+                .HasOne(f => f.Community)
+                .WithMany()
+                .HasForeignKey(f => f.CommunityId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<FacilityBooking>()
+                .HasOne(fb => fb.Facility)
+                .WithMany(f => f.Bookings)
+                .HasForeignKey(fb => fb.FacilityId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<FacilityBooking>()
+                .HasOne(fb => fb.User)
+                .WithMany()
+                .HasForeignKey(fb => fb.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
 
         // You may want to add other configurations here if needed, such as:
         // - Configuring indexes

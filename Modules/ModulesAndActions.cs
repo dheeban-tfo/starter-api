@@ -4,6 +4,8 @@ public enum ModuleName
 {
     UserManagement,
     CommunityManagement,
+    FacilityManagement,
+    FacilityBooking
     // Add other modules as needed
 }
 
@@ -30,5 +32,20 @@ public static class ModuleActions
         AssignManager
     }
 
+  public enum FacilityManagement
+    {
+        Create,
+        Read,
+        Update,
+        Delete
+    }
+
+    public enum FacilityBooking
+    {
+        Create,
+        Read,
+        Update,
+        Delete
+    }
     // Add other module action enums as needed
 }

@@ -29,6 +29,8 @@ using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddAutoMapper(typeof(Program));
+
 // Add services to the container.
 builder.Services.AddControllers();
 
@@ -187,6 +189,13 @@ builder.Services.AddScoped<IMigrationService, MigrationService>();
 builder.Services.AddScoped<IBlockRepository, BlockRepository>();
 builder.Services.AddScoped<IFloorRepository, FloorRepository>();
 builder.Services.AddScoped<IUnitRepository, UnitRepository>();
+
+// ... existing code ...
+
+builder.Services.AddScoped<IFacilityRepository, FacilityRepository>();
+builder.Services.AddScoped<IBookingRepository, BookingRepository>();
+
+// ... rest of your configuration ...
 
 // Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();

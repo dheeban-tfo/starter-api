@@ -80,6 +80,14 @@ namespace starterapi.Services
             {
                 // Check if the database exists
                 bool dbExists = await context.Database.CanConnectAsync();
+                 _logger.LogInformation($"Database exists for tenant {tenantId}: {dbExists}");
+
+                  var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+        _logger.LogInformation($"Pending migrations for tenant {tenantId}: {string.Join(", ", pendingMigrations)}");
+
+            var appliedMigrationss = await context.Database.GetAppliedMigrationsAsync();
+        _logger.LogInformation($"Applied migrations for tenant {tenantId}: {string.Join(", ", appliedMigrationss)}");
+
 
                 if (!dbExists)
                 {
@@ -98,10 +106,10 @@ namespace starterapi.Services
                     {
                         // If no migrations are applied, but the database exists (created by EnsureCreated),
                         // we need to mark the initial migration as applied without running it
-                        var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
-                        if (pendingMigrations.Any())
+                        var pendingMigrationss = await context.Database.GetPendingMigrationsAsync();
+                        if (pendingMigrationss.Any())
                         {
-                            var initialMigration = pendingMigrations.First();
+                            var initialMigration = pendingMigrationss.First();
                             await context.Database.ExecuteSqlRawAsync(
                                 $"INSERT INTO __EFMigrationsHistory (MigrationId, ProductVersion) VALUES ('{initialMigration}', '{context.GetType().Assembly.GetName().Version}')"
                             );
@@ -111,12 +119,18 @@ namespace starterapi.Services
                             );
                         }
                     }
+                    else
+                    {
+                        _logger.LogInformation($"No pending migrations for tenant {tenantId}");
+                    }
 
                     // Apply any pending migrations
                     await context.Database.MigrateAsync();
+                      _logger.LogInformation($"Migrations applied for tenant {tenantId}");
+
                 }
 
-                _logger.LogInformation($"Successfully migrated database for tenant {tenantId}");
+                //_logger.LogInformation($"Successfully migrated database for tenant {tenantId}");
                 return $"Successfully migrated database for tenant {tenantId}";
             }
             catch (Exception ex)
@@ -125,78 +139,6 @@ namespace starterapi.Services
                 return $"Error migrating database for tenant {tenantId}: {ex.Message}";
             }
 
-            // _logger.LogInformation($"Attempting to migrate database for tenant {tenantId}");
-
-            // var optionsBuilder = new DbContextOptionsBuilder<TenantDbContext>();
-            // optionsBuilder.UseSqlServer(connectionString);
-
-            // using var context = new TenantDbContext(optionsBuilder.Options);
-
-            // try
-            // {
-            //     // Ensure database exists
-            //     await context.Database.EnsureCreatedAsync();
-
-            //     // Apply migrations
-            //     await context.Database.MigrateAsync();
-
-            //     _logger.LogInformation($"Successfully migrated database for tenant {tenantId}");
-            //     return $"Successfully migrated database for tenant {tenantId}";
-            // }
-            // catch (Exception ex)
-            // {
-            //     _logger.LogError(ex, $"Error migrating database for tenant {tenantId}");
-            //     return $"Error migrating database for tenant {tenantId}: {ex.Message}";
-            // }
-
-            //--------
-            // _logger.LogInformation($"Attempting to migrate database for tenant {tenantId}");
-
-            // var optionsBuilder = new DbContextOptionsBuilder<TenantDbContext>();
-            // optionsBuilder.UseSqlServer(connectionString);
-
-            // using var context = new TenantDbContext(optionsBuilder.Options);
-
-            // try
-            // {
-            //     // Check if the database exists, if not, create it
-            //     await context.Database.EnsureCreatedAsync();
-
-            //     // Check if __EFMigrationsHistory table exists
-            //     var appliedMigrations = await context.Database.GetAppliedMigrationsAsync();
-            //     bool migrationTableExists = appliedMigrations.Any();
-
-            //     if (!migrationTableExists)
-            //     {
-            //         _logger.LogInformation(
-            //             $"__EFMigrationsHistory table not found for tenant {tenantId}. Creating initial migration."
-            //         );
-            //         await context.Database.MigrateAsync();
-            //         return $"Created initial migration for tenant {tenantId}";
-            //     }
-
-            //     var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
-            //     var pendingMigrationsList = pendingMigrations.ToList();
-
-            //     if (!pendingMigrationsList.Any())
-            //     {
-            //         _logger.LogInformation($"No pending migrations for tenant {tenantId}");
-            //         return $"No pending migrations for tenant {tenantId}";
-            //     }
-
-            //     _logger.LogInformation(
-            //         $"Pending migrations for tenant {tenantId}: {string.Join(", ", pendingMigrationsList)}"
-            //     );
-
-            //     await context.Database.MigrateAsync();
-            //     _logger.LogInformation($"Successfully applied migrations for tenant {tenantId}");
-            //     return $"Successfully applied migrations for tenant {tenantId}: {string.Join(", ", pendingMigrationsList)}";
-            // }
-            // catch (Exception ex)
-            // {
-            //     _logger.LogError(ex, $"Error applying migrations for tenant {tenantId}");
-            //     return $"Error applying migrations for tenant {tenantId}: {ex.Message}";
-            // }
         }
 
         public async Task<string> SeedTenantDataAsync(string tenantId)
