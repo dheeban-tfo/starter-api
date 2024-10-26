@@ -34,6 +34,8 @@ builder.Services.AddAutoMapper(typeof(Program));
 // Add services to the container.
 builder.Services.AddControllers();
 
+//builder.Services.AddScoped<IFirebaseNotificationService, FirebaseNotificationService>();
+
 builder.Services.AddScoped<TenantDbSchemaUpdater>();
 
 // Configure TenantManagementDbContext

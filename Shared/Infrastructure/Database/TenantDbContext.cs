@@ -44,6 +44,9 @@ public class TenantDbContext : DbContext
      public DbSet<Facility> Facilities { get; set; }
     public DbSet<FacilityBooking> FacilityBookings { get; set; }
 
+    public DbSet<RegisteredDevice> RegisteredDevices { get; set; }
+    public DbSet<DeviceSubscription> DeviceSubscriptions { get; set; }
+
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         var auditEntries = OnBeforeSaveChanges();
