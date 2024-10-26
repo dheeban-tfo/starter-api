@@ -68,7 +68,7 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
                 throw new MissingTenantIdException();
             }
 
-            UserContext.CurrentUserId = userId;
+            //UserContext.CurrentUserId = userId;
             var httpContext = _httpContextAccessor.HttpContext;
             var endpoint = httpContext?.GetEndpoint();
         var moduleAttribute = endpoint?.Metadata.GetMetadata<ModuleAttribute>();

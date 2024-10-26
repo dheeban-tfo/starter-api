@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Net;
 using System.Text.Json;
 
 namespace starterapi.Middleware
@@ -22,11 +23,41 @@ namespace starterapi.Middleware
             {
                 await _next(context);
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An unhandled exception occurred: {ExceptionType}", ex.GetType().Name);
-                await HandleExceptionAsync(context, ex);
-            }
+              catch (ValidationException ex)
+    {
+        _logger.LogWarning("Validation error: {Message}", ex.Message);
+        
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        context.Response.ContentType = "application/json";
+        
+        var error = new
+        {
+            StatusCode = StatusCodes.Status400BadRequest,
+            Message = ex.Message
+        };
+        
+        await context.Response.WriteAsJsonAsync(error);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "An unexpected error occurred");
+        
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json";
+        
+        var error = new
+        {
+            StatusCode = StatusCodes.Status500InternalServerError,
+            Message = "An unexpected error occurred. Please try again later."
+        };
+        
+        await context.Response.WriteAsJsonAsync(error);
+    }
+            // catch (Exception ex)
+            // {
+            //     _logger.LogError(ex, "An unhandled exception occurred: {ExceptionType}", ex.GetType().Name);
+            //     await HandleExceptionAsync(context, ex);
+            // }
         }
 
         private Task HandleExceptionAsync(HttpContext context, Exception exception)

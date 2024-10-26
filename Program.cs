@@ -26,6 +26,7 @@ using starterapi.Services;
 using StarterApi.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Identity;
+using StarterApi.Helpers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -93,12 +94,22 @@ builder.Services.AddHangfire(configuration =>
             {
                 CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
                 SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
-                QueuePollInterval = TimeSpan.Zero,
+                QueuePollInterval = TimeSpan.FromMinutes(1), // Add polling interval instead of Zero
                 UseRecommendedIsolationLevel = true,
-                DisableGlobalLocks = true
+                DisableGlobalLocks = true,
+                PrepareSchemaIfNecessary = true // Add this to ensure schema is prepared
             }
         )
 );
+
+// Add configuration for BackgroundJobServer
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = Environment.ProcessorCount * 2; // Limit number of workers
+    options.Queues = new[] { "default" }; // Specify queues to process
+    options.ServerTimeout = TimeSpan.FromMinutes(5);
+    options.ShutdownTimeout = TimeSpan.FromMinutes(5);
+});
 
 // Add API Versioning
 builder.Services.AddApiVersioning(options =>
@@ -197,6 +208,10 @@ builder.Services.AddScoped<IUnitRepository, UnitRepository>();
 builder.Services.AddScoped<IFacilityRepository, FacilityRepository>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
 
+builder.Services.AddScoped<IStorageService, AzureBlobStorageService>();
+builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<IFileRepository, FileRepository>();
+
 // ... rest of your configuration ...
 
 // Add HttpContextAccessor
@@ -253,7 +268,7 @@ builder
                     ILogger<Program>
                 >();
                 var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
-                logger.LogInformation("Authorization Header: {AuthHeader}", authHeader);
+                //logger.LogInformation("Authorization Header: {AuthHeader}", authHeader);
 
                 if (!string.IsNullOrEmpty(authHeader))
                 {
@@ -264,7 +279,7 @@ builder
                     }
                     var token = authHeader.Substring("Bearer ".Length).Trim();
                     context.Token = token;
-                    logger.LogInformation("JWT token extracted: {Token}", token);
+                    //logger.LogInformation("JWT token extracted: {Token}", token);
                 }
                 else
                 {
@@ -361,6 +376,9 @@ builder
 
 var app = builder.Build();
 
+// Configure UserContext
+UserContext.Configure(app.Services.GetRequiredService<IHttpContextAccessor>());
+
 // Add health check endpoints
 app.MapHealthChecks(
     "/health",
@@ -396,7 +414,7 @@ app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 app.UseAuthentication();
-app.UseMiddleware<HeaderLoggingMiddleware>();
+//app.UseMiddleware<HeaderLoggingMiddleware>(); enable to debug headers
 app.UseMiddleware<TenantMiddleware>();
 app.UseAuthorization();
 app.UseRateLimiter();
@@ -461,6 +479,26 @@ try
             app.Logger.LogInformation(url);
         }
     });
+
+    // Add proper shutdown handling
+    app.Lifetime.ApplicationStopping.Register(() =>
+    {
+        Log.Information("Application is shutting down...");
+        // Ensure Hangfire jobs are completed or properly stopped
+        var hangfireStorage = app.Services.GetService<JobStorage>();
+        if (hangfireStorage != null)
+        {
+            try
+            {
+                // No need to dispose hangfireStorage as it does not implement IDisposable
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error disposing Hangfire storage");
+            }
+        }
+    });
+
     app.Run();
 }
 catch (Exception ex)

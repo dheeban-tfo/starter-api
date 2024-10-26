@@ -23,14 +23,14 @@ public class TenantMiddleware
         );
 
         // Log the Authorization header
-        var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
-        _logger.LogInformation("Authorization Header: {AuthHeader}", authHeader);
+        //var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
+       // _logger.LogInformation("Authorization Header: {AuthHeader}", authHeader);
 
         // Log all headers
-        foreach (var header in context.Request.Headers)
-        {
-            _logger.LogInformation("Header: {Key} = {Value}", header.Key, header.Value);
-        }
+        // foreach (var header in context.Request.Headers)
+        // {
+        //     _logger.LogInformation("Header: {Key} = {Value}", header.Key, header.Value);
+        // }
 
         string tenantId = null;
 
