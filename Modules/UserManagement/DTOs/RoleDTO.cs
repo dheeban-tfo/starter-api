@@ -11,13 +11,13 @@
 {
     public int RoleId { get; set; }
     public int ModuleId { get; set; }
-    public string Action { get; set; }
+    public int ActionId { get; set; }
     public string ModuleName { get; set; }
 }
 
     public class UserRoleDTO
     {
-        public int UserId { get; set; }
+        public Guid UserId { get; set; }
         public int RoleId { get; set; }
         public string RoleName { get; set; }
     }

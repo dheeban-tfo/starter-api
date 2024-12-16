@@ -4,6 +4,7 @@ using starterapi.Services;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace starterapi;
 
@@ -17,6 +18,7 @@ private readonly IUserRepository _userRepository;
     private readonly IEmailVerificationService _emailVerificationService;
     private readonly ITenantDbContextAccessor _dbContextAccessor;
     private readonly ITenantService _tenantService;
+    private readonly IConfiguration _configuration;
 
     public AuthController(
         IUserRepository userRepository,
@@ -24,7 +26,8 @@ private readonly IUserRepository _userRepository;
         ILogger<AuthController> logger,
         IEmailVerificationService emailVerificationService,
         ITenantDbContextAccessor dbContextAccessor,
-        ITenantService tenantService)
+        ITenantService tenantService,
+        IConfiguration configuration)
     {
         _userRepository = userRepository;
         _jwtService = jwtService;
@@ -32,6 +35,7 @@ private readonly IUserRepository _userRepository;
         _emailVerificationService = emailVerificationService;
         _dbContextAccessor = dbContextAccessor;
         _tenantService = tenantService;
+        _configuration = configuration;
     }
 
     [HttpPost("login")]
@@ -144,7 +148,7 @@ private readonly IUserRepository _userRepository;
         var tenantDb = _tenantService.CreateTenantDbContext(tenant.ConnectionString);
         HttpContext.Items["TenantDbContext"] = tenantDb;
 
-        var user = await _userRepository.GetUserByIdAsync(int.Parse(userId));
+        var user = await _userRepository.GetUserByIdAsync(Guid.Parse(userId));
 
         if (user == null || user.RefreshToken != refreshToken || user.RefreshTokenExpiryTime <= DateTime.Now)
         {
@@ -166,7 +170,7 @@ private readonly IUserRepository _userRepository;
 
     [HttpPost("revoke/{userId}")]
     [Authorize]
-    public async Task<IActionResult> Revoke(int userId)
+    public async Task<IActionResult> Revoke(Guid userId)
     {
         var user = await _userRepository.GetUserByIdAsync(userId);
         if (user == null) return BadRequest("Invalid user id");
@@ -175,6 +179,63 @@ private readonly IUserRepository _userRepository;
         await _userRepository.UpdateUserAsync(user);
 
         return NoContent();
+    }
+
+    [HttpPost("global-login")]
+    public async Task<IActionResult> GlobalLogin([FromBody] GlobalLoginRequest loginRequest)
+    {
+        try
+        {
+            _logger.LogInformation("Global login attempt for email: {Email}", loginRequest.Email);
+
+            var tenantManagementContext = new TenantManagementDbContext(
+                new DbContextOptionsBuilder<TenantManagementDbContext>()
+                    .UseSqlServer(_configuration.GetConnectionString("TenantManagement"))
+                    .Options
+            );
+
+            var tenants = await tenantManagementContext.Tenants
+                .Where(t => t.IsActive)
+                .ToListAsync();
+
+            foreach (var tenant in tenants)
+            {
+                var tenantDb = _tenantService.CreateTenantDbContext(tenant.ConnectionString);
+                var user = await tenantDb.Users
+                    .FirstOrDefaultAsync(u => u.Email == loginRequest.Email);
+
+                if (user != null && BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.PasswordHash))
+                {
+                    if (!user.EmailVerified)
+                    {
+                        await _emailVerificationService.GenerateVerificationTokenAsync(user);
+                        return Unauthorized(new { message = "Email not verified. A new verification email has been sent." });
+                    }
+
+                    var token = _jwtService.GenerateToken(user, tenant);
+                    var refreshToken = _jwtService.GenerateRefreshToken();
+
+                    user.RefreshToken = refreshToken;
+                    user.RefreshTokenExpiryTime = DateTime.Now.AddDays(7);
+                    await tenantDb.SaveChangesAsync();
+
+                    return Ok(new
+                    {
+                        Token = token,
+                        RefreshToken = refreshToken,
+                        TenantId = tenant.Identifier,
+                        TenantName = tenant.Name
+                    });
+                }
+            }
+
+            return Unauthorized(new { message = "Invalid email or password" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred during global login for email: {Email}", loginRequest.Email);
+            return StatusCode(500, new { message = "An error occurred during login. Please try again later." });
+        }
     }
 }
 
@@ -187,4 +248,10 @@ public class RefreshTokenRequest
 {
     public string AccessToken { get; set; }
     public string RefreshToken { get; set; }
+}
+
+public class GlobalLoginRequest
+{
+    public string Email { get; set; }
+    public string Password { get; set; }
 }

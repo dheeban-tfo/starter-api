@@ -33,7 +33,7 @@ public class ProfileController : ControllerBase
     {
         try
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+            var userId = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
             var tenantId = User.FindFirst("TenantId")?.Value;
 
             _logger.LogInformation("Retrieving profile for UserId: {UserId}, TenantId: {TenantId}", userId, tenantId);

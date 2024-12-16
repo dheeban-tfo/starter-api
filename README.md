@@ -151,5 +151,6 @@ dotnet ef migrations add InitialTenantMigration -c TenantDbContext
 ---new
 
 dotnet ef migrations add InitialTenantManagementMigration -c TenantManagementDbContext
+dotnet ef migrations add InitialTenantManagementMigration -c TenantManagementDbContext -o Migrations/TenantManagementDb
 
-dotnet ef migrations add InitialTenantMigration -c TenantDbContext  
+dotnet ef migrations add InitialTenantMigration -c TenantDbContext -o Migrations/TenantDb

@@ -7,7 +7,7 @@ namespace starterapi.Services;
 public interface IEmailVerificationService
 {
     Task<string> GenerateVerificationTokenAsync(User user);
-    Task<bool> VerifyEmailAsync(int userId, string token);
+    Task<bool> VerifyEmailAsync(Guid userId, string token);
 }
 
 public class EmailVerificationService : IEmailVerificationService
@@ -46,7 +46,7 @@ public class EmailVerificationService : IEmailVerificationService
         return token;
     }
 
-    public async Task<bool> VerifyEmailAsync(int userId, string token)
+    public async Task<bool> VerifyEmailAsync(Guid userId, string token)
     {
        var context = _contextAccessor.TenantDbContext;
         var user = await context.Users.FindAsync(userId);

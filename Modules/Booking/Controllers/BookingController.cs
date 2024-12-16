@@ -39,7 +39,7 @@ namespace StarterApi.Controllers
                 return Unauthorized("User ID not found in token");
             }
 
-            bookingDto.UserId = int.Parse(userId);
+            bookingDto.UserId = Guid.Parse(userId);
             bookingDto.CreatedBy = userId;
             bookingDto.ModifiedBy = userId;
 

@@ -27,6 +27,7 @@ using StarterApi.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Identity;
 using StarterApi.Helpers;
+using Hangfire.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -94,21 +95,23 @@ builder.Services.AddHangfire(configuration =>
             {
                 CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
                 SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
-                QueuePollInterval = TimeSpan.FromMinutes(1), // Add polling interval instead of Zero
+                QueuePollInterval = TimeSpan.FromMinutes(1),
                 UseRecommendedIsolationLevel = true,
                 DisableGlobalLocks = true,
-                PrepareSchemaIfNecessary = true // Add this to ensure schema is prepared
+                PrepareSchemaIfNecessary = true
             }
         )
 );
 
-// Add configuration for BackgroundJobServer
+// Add a single Hangfire server
 builder.Services.AddHangfireServer(options =>
 {
-    options.WorkerCount = Environment.ProcessorCount * 2; // Limit number of workers
-    options.Queues = new[] { "default" }; // Specify queues to process
+    options.WorkerCount = Math.Max(Environment.ProcessorCount * 2, 20); // Set minimum of 20 workers
+    options.Queues = new[] { "default" };
+    options.ServerName = $"{Environment.MachineName}:{Environment.ProcessId}";
     options.ServerTimeout = TimeSpan.FromMinutes(5);
     options.ShutdownTimeout = TimeSpan.FromMinutes(5);
+    options.SchedulePollingInterval = TimeSpan.FromSeconds(15);
 });
 
 // Add API Versioning
@@ -490,11 +493,18 @@ try
         {
             try
             {
-                // No need to dispose hangfireStorage as it does not implement IDisposable
+                // Get all running jobs and try to gracefully stop them
+                using var connection = hangfireStorage.GetConnection();
+                var runningJobs = connection.GetRecurringJobs();
+                foreach (var job in runningJobs)
+                {
+                    BackgroundJob.Delete(job.Id);
+                }
+                Log.Information("Hangfire jobs stopped successfully");
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Error disposing Hangfire storage");
+                Log.Error(ex, "Error stopping Hangfire jobs");
             }
         }
     });

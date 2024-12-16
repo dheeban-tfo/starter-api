@@ -401,30 +401,24 @@ namespace StarterApi.Repositories
 
             if (user == null)
             {
-                var userId = UserContext.CurrentUserId;
-                if (string.IsNullOrEmpty(userId))
+                var userIdString = UserContext.CurrentUserId;
+                if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out Guid userId))
                 {
-                    throw new InvalidOperationException("User ID not found in the current context");
+                    throw new InvalidOperationException("Invalid User ID in the current context");
                 }
 
                 user = new User
                 {
+                    Id = Guid.NewGuid(),
                     Email = email ?? throw new ArgumentNullException(nameof(email)),
                     PhoneNumber = contactNumber ?? throw new ArgumentNullException(nameof(contactNumber)),
                     FirstName = name ?? throw new ArgumentNullException(nameof(name)),
-                    LastName = "", // Add a default value or split the name if possible
+                    LastName = "",
                     CreatedAt = DateTime.UtcNow,
                     IsActive = true,
-                   // UserName = email, // Set username to email
-                    PasswordHash = _passwordHasher.HashPassword(null, "DefaultPassword123!"), // Set a default password hash
-                    // Add any other required fields here
+                    PasswordHash = _passwordHasher.HashPassword(null, "DefaultPassword123!"),
+                    EmailVerified = false
                 };
-
-                // If these fields are required in your database, uncomment and set them
-                // user.CreatedBy = userId;
-                // user.ModifiedBy = userId;
-                // user.ModifiedAt = DateTime.UtcNow;
-                // user.Version = DateTime.UtcNow.Ticks;
 
                 _contextAccessor.TenantDbContext.Users.Add(user);
                 await _contextAccessor.TenantDbContext.SaveChangesAsync();

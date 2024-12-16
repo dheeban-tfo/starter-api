@@ -32,7 +32,7 @@ public class UserController : ControllerBase
 
     [Permission("View")]
     [HttpGet("{id}")]
-    public async Task<ActionResult<User>> GetUserById(int id)
+    public async Task<ActionResult<User>> GetUserById(Guid id)
     {
         _logger.LogInformation("GetUserById");
         var user = await _userRepository.GetUserByIdAsync(id);
@@ -79,7 +79,7 @@ public class UserController : ControllerBase
 
     [Permission("Edit")]
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateUser(int id, User user)
+    public async Task<IActionResult> UpdateUser(Guid id, User user)
     {
         if (id != user.Id)
             return BadRequest();
@@ -90,7 +90,7 @@ public class UserController : ControllerBase
 
     [Permission("Delete")]
     [HttpPatch("{id}/deactivate")]
-    public async Task<IActionResult> DeactivateUser(int id)
+    public async Task<IActionResult> DeactivateUser(Guid id)
     {
         await _userRepository.DeactivateUserAsync(id);
         return NoContent();

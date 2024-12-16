@@ -4,7 +4,7 @@ public class FacilityBookingDto :BaseEntity
 {
     public int Id { get; set; }
     public int FacilityId { get; set; }
-    public int UserId { get; set; }
+    public Guid UserId { get; set; }
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
     public BookingStatus Status { get; set; }
@@ -13,7 +13,7 @@ public class FacilityBookingDto :BaseEntity
 public class CreateBookingDto
 {
     public int FacilityId { get; set; }
-    public int UserId { get; set; }
+    public Guid UserId { get; set; }
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
     public string CreatedBy { get; set; }

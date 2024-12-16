@@ -44,7 +44,7 @@ namespace StarterApi.Models
         public int UnitId { get; set; }
         public Unit Unit { get; set; }
         
-        public int UserId { get; set; }
+        public Guid UserId { get; set; }
         public User User { get; set; }
         public DateTime OwnershipStartDate { get; set; }
         public DateTime? OwnershipEndDate { get; set; }
@@ -55,7 +55,7 @@ namespace StarterApi.Models
     {
         public int UnitId { get; set; }
         public Unit Unit { get; set; }
-        public int UserId { get; set; }
+        public Guid UserId { get; set; }
         public User User { get; set; }
         public ResidentType ResidentType { get; set; }
         public DateTime MoveInDate { get; set; }

@@ -60,58 +60,65 @@ public static class TenantSeeder
     public static void SeedTenants(IServiceProvider serviceProvider)
     {
         using var scope = serviceProvider.CreateScope();
-        var tenantManagementContext =
-            scope.ServiceProvider.GetRequiredService<TenantManagementDbContext>();
+        var tenantManagementContext = scope.ServiceProvider.GetRequiredService<TenantManagementDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
         var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
         try
         {
+            // First, ensure Hangfire database exists
             EnsureHangfireDatabaseCreated(configuration, logger);
 
-            // Apply migrations to the tenant management database
-            tenantManagementContext.Database.Migrate();
+            logger.LogInformation("Checking and applying pending migrations...");
+            
+            // Check if there are any pending migrations
+            if (tenantManagementContext.Database.GetPendingMigrations().Any())
+            {
+                logger.LogInformation("Applying pending migrations to tenant management database...");
+                tenantManagementContext.Database.Migrate();
+                logger.LogInformation("Migrations applied successfully.");
+            }
+            else
+            {
+                logger.LogInformation("No pending migrations found.");
+            }
 
-            // Seed roles and root admin
+            // Now seed roles and root admin
             SeedRolesAndRootAdmin(tenantManagementContext, logger);
 
-            logger.LogInformation("Ensuring tenant databases are created and seeded...");
-
+            // Handle tenant creation and seeding
             var tenants = tenantManagementContext.Tenants.ToList();
-            if (tenants.Count == 0)
+            if (!tenants.Any())
             {
                 logger.LogInformation("No tenants found. Creating default tenants...");
 
-                tenants.Add(
+                tenants.AddRange(new[]
+                {
                     new Tenant
                     {
                         Name = "Alpha",
                         Identifier = "alpha",
-                        ConnectionString =
-                            "Server=localhost;Database=AlphaTenantDb;User Id=sa;Password=YourStrongPassword!;TrustServerCertificate=true"
-                    }
-                );
-
-                tenants.Add(
+                        ConnectionString = "Server=localhost;Database=AlphaTenantDb;User Id=sa;Password=MyPass@word;TrustServerCertificate=true"
+                    },
                     new Tenant
                     {
                         Name = "Beta",
                         Identifier = "beta",
-                        ConnectionString =
-                            "Server=localhost;Database=BetaTenantDb;User Id=sa;Password=YourStrongPassword!;TrustServerCertificate=true"
+                        ConnectionString = "Server=localhost;Database=BetaTenantDb;User Id=sa;Password=MyPass@word;TrustServerCertificate=true"
                     }
-                );
+                });
 
                 tenantManagementContext.Tenants.AddRange(tenants);
                 tenantManagementContext.SaveChanges();
             }
 
+            // Create and seed tenant databases
             foreach (var tenant in tenants)
             {
                 CreateAndSeedTenantData(tenant.ConnectionString, logger);
             }
 
-            logger.LogInformation("Tenant database creation and seeding completed.");
+            logger.LogInformation("Tenant database creation and seeding completed successfully.");
         }
         catch (Exception ex)
         {
@@ -165,53 +172,86 @@ public static class TenantSeeder
 
     private static void SeedRolesAndRootAdmin(TenantManagementDbContext context, ILogger logger)
     {
-        logger.LogInformation("Seeding roles and root admin...");
-
-        // Seed roles if they don't exist
-        if (!context.Roles.Any())
+        try
         {
-            var roles = new List<Role>
-            {
-                new Role { Name = "Root Admin" }
-            };
+            logger.LogInformation("Starting to seed roles and root admin...");
 
-            context.Roles.AddRange(roles);
-            context.SaveChanges();
-        }
-
-        // Seed root admin if it doesn't exist
-        if (!context.Users.Any(u => u.Email == "rootadmin@example.com"))
-        {
-            var rootRole = context.Roles.FirstOrDefault(r => r.Name == "Root Admin");
-            if (rootRole == null)
+            // First ensure database exists and is created
+            if (!context.Database.CanConnect())
             {
-                logger.LogError("Root role not found. Cannot create root admin.");
-                return;
+                logger.LogInformation("Database does not exist. Creating database...");
+                context.Database.EnsureCreated();
             }
 
-            var rootAdmin = new User
+            // Then check for pending migrations
+            var pendingMigrations = context.Database.GetPendingMigrations();
+            if (pendingMigrations.Any())
             {
-                FirstName = "Root",
-                LastName = "Admin",
-                Email = "rootadmin@example.com",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("RootAdminPassword123!"),
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
+                logger.LogInformation("Applying pending migrations...");
+                context.Database.Migrate();
+            }
 
-            context.Users.Add(rootAdmin);
-            context.SaveChanges();
+            // Now proceed with seeding
+            using var transaction = context.Database.BeginTransaction();
+            try
+            {
+                // Seed roles if they don't exist
+                if (!context.Roles.Any())
+                {
+                    logger.LogInformation("Seeding roles...");
+                    var roles = new List<Role>
+                    {
+                        new Role { Name = "Root Admin" },
+                        new Role { Name = "Admin" },
+                        new Role { Name = "User" }
+                    };
 
-            var userRole = new UserRole { UserId = rootAdmin.Id, RoleId = rootRole.Id };
+                    context.Roles.AddRange(roles);
+                    context.SaveChanges();
+                    logger.LogInformation("Roles seeded successfully.");
+                }
 
-            context.UserRoles.Add(userRole);
-            context.SaveChanges();
+                // Seed root admin if it doesn't exist
+                if (!context.Users.Any(u => u.Email == "rootadmin@example.com"))
+                {
+                    logger.LogInformation("Creating root admin user...");
+                    var rootRole = context.Roles.FirstOrDefault(r => r.Name == "Root Admin")
+                        ?? throw new InvalidOperationException("Root Admin role not found");
 
-            logger.LogInformation("Root admin created successfully.");
+                    var rootAdmin = new User
+                    {
+                        Id = Guid.NewGuid(),
+                        FirstName = "Root",
+                        LastName = "Admin",
+                        Email = "rootadmin@example.com",
+                        PhoneNumber = null,
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword("RootAdminPassword123!"),
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        EmailVerified = true
+                    };
+
+                    context.Users.Add(rootAdmin);
+                    context.SaveChanges();
+
+                    context.UserRoles.Add(new UserRole { UserId = rootAdmin.Id, RoleId = rootRole.Id });
+                    context.SaveChanges();
+
+                    logger.LogInformation("Root admin created successfully.");
+                }
+
+                transaction.Commit();
+            }
+            catch (Exception)
+            {
+                transaction.Rollback();
+                throw;
+            }
         }
-        else
+        catch (Exception ex)
         {
-            logger.LogInformation("Root admin already exists. Skipping creation.");
+            logger.LogError(ex, "Error occurred while seeding roles and root admin");
+            throw;
         }
     }
 

@@ -135,10 +135,11 @@ public static class DbSeeder
 
             var superAdminUser = new User
             {
+                Id = Guid.NewGuid(),
                 FirstName = "Super",
                 LastName = "Admin",
                 Email = "superadmin@example.com",
-                PhoneNumber="1234567890",
+                PhoneNumber = "1234567890",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("SuperAdminPassword123"),
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,

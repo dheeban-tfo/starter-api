@@ -26,7 +26,7 @@ public class PermissionMiddleware
 
             if (moduleAttribute != null && permissionAttribute != null)
             {
-                var userId = int.Parse(user.FindFirst(ClaimTypes.NameIdentifier).Value);
+                var userId = Guid.Parse(user.FindFirst(ClaimTypes.NameIdentifier).Value);
                 var moduleName = moduleAttribute.Name.ToString();
                 var actionName = permissionAttribute.Name;
 

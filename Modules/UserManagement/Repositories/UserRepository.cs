@@ -9,7 +9,7 @@ public class UserRepository : BaseRepository<User>, IUserRepository
 {
   
 
-    public async Task DeactivateUserAsync(int id)
+    public async Task DeactivateUserAsync(Guid id)
     {
         var user = await Context.Users.FindAsync(id);
         if (user != null)
@@ -25,7 +25,7 @@ public class UserRepository : BaseRepository<User>, IUserRepository
     {
     }
 
-    public async Task<User> GetUserByIdAsync(int id)
+    public async Task<User> GetUserByIdAsync(Guid id)
     {
         return await Context.Users.FindAsync(id);
     }

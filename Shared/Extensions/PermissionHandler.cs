@@ -60,10 +60,13 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
                 throw new UserNotAuthenticatedException();
             }
 
-            var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = Guid.Parse(context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+            
+            
+
             var tenantId = context.User.FindFirst("TenantId")?.Value;
 
-            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(tenantId))
+            if (userId == Guid.Empty || string.IsNullOrEmpty(tenantId))
             {
                 throw new MissingTenantIdException();
             }
@@ -139,14 +142,14 @@ public class PermissionHandler : AuthorizationHandler<PermissionRequirement>
     }
 
     private async Task<HashSet<string>> GetUserPermissionsFromDatabase(
-        string userId,
+        Guid userId,
         string tenantId
     )
     {
         var dbContext = _contextAccessor.TenantDbContext;
 
         var permissions = await dbContext
-            .UserRoles.Where(ur => ur.UserId == int.Parse(userId))
+            .UserRoles.Where(ur => ur.UserId == userId)
             .SelectMany(ur => ur.Role.AllowedActions)
             .Where(ma => ma.Module != null)
             .Select(ma => $"{ma.Module.Name}_{ma.Name}")
@@ -193,7 +196,7 @@ public class MissingModuleOrPermissionAttributeException : AuthorizationExceptio
 public class InsufficientPermissionsException : AuthorizationException
 {
     public InsufficientPermissionsException(
-        string userId,
+        Guid userId,
         string tenantId,
         string moduleName,
         string actionName

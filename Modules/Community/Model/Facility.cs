@@ -16,7 +16,7 @@ namespace StarterApi.Models
     {
         public int FacilityId { get; set; }
         public Facility Facility { get; set; }
-        public int UserId { get; set; }
+        public Guid UserId { get; set; }
         public User User { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime EndTime { get; set; }

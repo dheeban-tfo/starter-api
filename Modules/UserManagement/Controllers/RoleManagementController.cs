@@ -45,28 +45,37 @@ namespace starterapi.Controllers
         {
             var modules = Enum.GetValues(typeof(ModuleName))
                 .Cast<ModuleName>()
-                .Select(m => new { Name = m.ToString(), Actions = GetActionsForModule(m) });
+                .Select(m => new 
+                { 
+                    Id = (int)m,
+                    Name = m.ToString(),
+                    Actions = GetActionsForModule(m).Select(a => new
+                    {
+                        Id = a.GetHashCode(),
+                        Name = a.ToString()
+                    })
+                });
 
             return Ok(modules);
         }
 
         [HttpPost("AssignPermissionToRole")]
-        public async Task<ActionResult<RoleModulePermissionDTO>> AssignPermissionToRole(
-            [FromBody] AssignPermissionRequest request
-        )
+        public async Task<IActionResult> AssignPermissionToRole([FromBody] RoleModulePermissionDTO request)
         {
             var context = _contextAccessor.TenantDbContext;
-            var role = await context.Roles.FindAsync(request.RoleId);
-            if (role == null)
-                return NotFound("Role not found.");
+            var role = await context.Roles
+                .Include(r => r.AllowedActions)
+                .FirstOrDefaultAsync(r => r.Id == request.RoleId);
 
-            var moduleAction = await context
-                .ModuleActions.Include(ma => ma.Module)
-                .FirstOrDefaultAsync(ma =>
-                    ma.Module.Name == request.Module.ToString() && ma.Name == request.Action
-                );
+            if (role == null)
+                return NotFound("Role not found");
+
+            var moduleAction = await context.ModuleActions
+                .FirstOrDefaultAsync(ma => ma.Id == request.ActionId
+                                          && ma.ModuleId == request.ModuleId);
+
             if (moduleAction == null)
-                return NotFound("Module action not found.");
+                return NotFound("Module action not found");
 
             if (role.AllowedActions == null)
                 role.AllowedActions = new List<ModuleAction>();
@@ -82,7 +91,7 @@ namespace starterapi.Controllers
                 {
                     RoleId = role.Id,
                     ModuleId = moduleAction.ModuleId,
-                    Action = moduleAction.Name,
+                    ActionId = moduleAction.Id,
                     ModuleName = moduleAction.Module.Name
                 }
             );
@@ -125,7 +134,11 @@ namespace starterapi.Controllers
                 .ToListAsync();
 
             var roleDTOs = roles
-                .Select(r => new RoleDTO())
+                .Select(r => new RoleDTO
+                {
+                    Id = r.Id,
+                    Name = r.Name
+                })
                 .ToList();
 
             return Ok(roleDTOs);
@@ -237,13 +250,13 @@ namespace starterapi.Controllers
 
     public class AssignRoleToUserRequest
     {
-        public int UserId { get; set; }
+        public Guid UserId { get; set; }
         public int RoleId { get; set; }
     }
 
     public class RemoveRoleFromUserRequest
     {
-        public int UserId { get; set; }
+        public Guid UserId { get; set; }
         public int RoleId { get; set; }
     }
 }

@@ -36,7 +36,7 @@ public class PermissionAuthorizeFilter : IAuthorizationFilter
             return;
         }
 
-        var userId = int.Parse(user.FindFirst(ClaimTypes.NameIdentifier).Value);
+        var userId = Guid.Parse(user.FindFirst(ClaimTypes.NameIdentifier).Value);
         var hasPermission = _context
             .UserRoles.Where(ur => ur.UserId == userId)
             .Select(ur => ur.Role)

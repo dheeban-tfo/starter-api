@@ -143,14 +143,14 @@ namespace starterapi.Controllers
 
         private async Task<bool> IsUserAuthorized(string tenantId)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out Guid userId))
             {
                 return false;
             }
 
             var userRoles = await _context.UserRoles
-                .Where(ur => ur.UserId == int.Parse(userId))
+                .Where(ur => ur.UserId == userId)
                 .Include(ur => ur.Role)
                 .ToListAsync();
 
