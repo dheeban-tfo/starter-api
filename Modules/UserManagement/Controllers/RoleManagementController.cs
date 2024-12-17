@@ -41,20 +41,22 @@ namespace starterapi.Controllers
         }
 
         [HttpGet("modules")]
-        public IActionResult GetModulesAndActions()
+        public async Task<IActionResult> GetModulesAndActions()
         {
-            var modules = Enum.GetValues(typeof(ModuleName))
-                .Cast<ModuleName>()
-                .Select(m => new 
-                { 
-                    Id = (int)m,
-                    Name = m.ToString(),
-                    Actions = GetActionsForModule(m).Select(a => new
+            var context = _contextAccessor.TenantDbContext;
+            var modules = await context.Modules
+                .Include(m => m.Actions)
+                .Select(m => new
+                {
+                    Id = m.Id,
+                    Name = m.Name,
+                    Actions = m.Actions.Select(a => new
                     {
-                        Id = a.GetHashCode(),
-                        Name = a.ToString()
+                        Id = a.Id,
+                        Name = a.Name
                     })
-                });
+                })
+                .ToListAsync();
 
             return Ok(modules);
         }
@@ -92,31 +94,35 @@ namespace starterapi.Controllers
                     RoleId = role.Id,
                     ModuleId = moduleAction.ModuleId,
                     ActionId = moduleAction.Id,
-                    ModuleName = moduleAction.Module.Name
+                   // ModuleName = moduleAction.Module.Name
                 }
             );
         }
 
         [HttpDelete("RemovePermissionFromRole")]
-        public async Task<ActionResult> RemovePermissionFromRole(
-            [FromBody] RemovePermissionRequest request
-        )
+        public async Task<ActionResult> RemovePermissionFromRole([FromBody] RoleModulePermissionDTO request)
         {
             var context = _contextAccessor.TenantDbContext;
-            var role = await context
-                .Roles.Include(r => r.AllowedActions)
-                .ThenInclude(ma => ma.Module)
+            var role = await context.Roles
+                .Include(r => r.AllowedActions)
                 .FirstOrDefaultAsync(r => r.Id == request.RoleId);
+
             if (role == null)
                 return NotFound("Role not found.");
 
-            var moduleAction = role.AllowedActions.FirstOrDefault(ma =>
-                ma.Module.Name == request.Module.ToString() && ma.Name == request.Action
-            );
+            var moduleAction = await context.ModuleActions
+                .FirstOrDefaultAsync(ma => ma.Id == request.ActionId && ma.ModuleId == request.ModuleId);
+
             if (moduleAction == null)
+                return NotFound("Module action not found.");
+
+            var permissionToRemove = role.AllowedActions
+                .FirstOrDefault(a => a.Id == request.ActionId);
+
+            if (permissionToRemove == null)
                 return NotFound("Permission not found for this role.");
 
-            role.AllowedActions.Remove(moduleAction);
+            role.AllowedActions.Remove(permissionToRemove);
             await context.SaveChangesAsync();
 
             return Ok();
@@ -157,7 +163,19 @@ namespace starterapi.Controllers
             if (role == null)
                 return NotFound("Role not found.");
 
-            var roleDTO = new RoleDTO();
+            var roleDTO = new RoleDTO
+            {
+                Id = role.Id,
+                Name = role.Name,
+                RoleModulePermissions = role.AllowedActions.Select(action => new RoleModulePermissionDTO
+                {
+                    RoleId = role.Id,
+                    ModuleId = action.ModuleId,
+                    ActionId = action.Id,
+                    //ModuleName = action.Module.Name
+                }).ToList()
+            };
+
             return Ok(roleDTO);
         }
 
