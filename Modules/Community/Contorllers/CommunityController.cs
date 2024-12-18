@@ -130,16 +130,41 @@ namespace StarterApi.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateCommunity(int id, Community community)
+        [Authorize(Roles = "Admin,Super Admin")]
+        [Permission(nameof(ModuleActions.CommunityManagement.Update))]
+        public async Task<IActionResult> UpdateCommunity(int id, UpdateCommunityDto communityDto)
         {
-            if (id != community.Id)
+            if (id != communityDto.Id)
             {
                 return BadRequest();
             }
 
-            community.ModifiedAt = DateTime.UtcNow;
-            await _communityRepository.UpdateAsync(community);
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("User ID not found in token");
+            }
+
+            var existingCommunity = await _communityRepository.GetByIdAsync(id);
+            if (existingCommunity == null)
+            {
+                return NotFound();
+            }
+
+            // Update only the allowed fields
+            existingCommunity.Name = communityDto.Name;
+            existingCommunity.Address = communityDto.Address;
+          
+            var communityToUpdate = new Community
+            {
+                Id = existingCommunity.Id,
+                Name = existingCommunity.Name,
+                Address = existingCommunity.Address,
+                ModifiedAt = DateTime.UtcNow,
+                ModifiedBy = userId
+            };
+
+            await _communityRepository.UpdateAsync(communityToUpdate);
             return NoContent();
         }
 

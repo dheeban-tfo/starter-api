@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using StarterApi.Models;
 using starterapi;
 using starterapi.Services;
+using StarterApi.Helpers;
 
 namespace StarterApi.Repositories
 {
@@ -32,6 +33,8 @@ namespace StarterApi.Repositories
         public async Task<FacilityDto> CreateAsync(CreateFacilityDto facilityDto)
         {
             var facility = _mapper.Map<Facility>(facilityDto);
+            facility.CreatedAt = DateTime.UtcNow;
+            facility.CreatedBy = UserContext.CurrentUserId;
             _contextAccessor.TenantDbContext.Facilities.Add(facility);
             await _contextAccessor.TenantDbContext.SaveChangesAsync();
             return _mapper.Map<FacilityDto>(facility);

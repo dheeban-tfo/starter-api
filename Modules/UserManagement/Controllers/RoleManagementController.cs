@@ -245,6 +245,43 @@ namespace starterapi.Controllers
                 _ => Enumerable.Empty<string>(),
             };
         }
+
+        [HttpGet("UserAccess/{userId}")]
+       // [Permission(nameof(ModuleActions.UserManagement.Read))]
+        public async Task<ActionResult<UserAccessDTO>> GetUserAccess(Guid userId)
+        {
+            var context = _contextAccessor.TenantDbContext;
+            var user = await context.Users
+                .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                        .ThenInclude(r => r.AllowedActions)
+                            .ThenInclude(a => a.Module)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+                return NotFound("User not found");
+
+            var userAccessDTO = new UserAccessDTO
+            {
+                UserId = user.Id,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Roles = user.UserRoles.Select(ur => new UserRoleAccessDTO
+                {
+                    RoleId = ur.Role.Id,
+                    RoleName = ur.Role.Name,
+                    Permissions = ur.Role.AllowedActions.Select(aa => new RoleModulePermissionDTO
+                    {
+                        RoleId = ur.Role.Id,
+                        ModuleId = aa.ModuleId,
+                        ActionId = aa.Id
+                    }).ToList()
+                }).ToList()
+            };
+
+            return Ok(userAccessDTO);
+        }
     }
 
     public class CreateRoleRequest

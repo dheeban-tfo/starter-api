@@ -14,11 +14,13 @@ namespace StarterApi.Repositories
     {
         private readonly ITenantDbContextAccessor _contextAccessor;
         private readonly IPasswordHasher<User> _passwordHasher;
+        private readonly ILogger<CommunityRepository> _logger;
 
-        public CommunityRepository(ITenantDbContextAccessor contextAccessor, IPasswordHasher<User> passwordHasher)
+        public CommunityRepository(ITenantDbContextAccessor contextAccessor, IPasswordHasher<User> passwordHasher, ILogger<CommunityRepository> logger)
         {
             _contextAccessor = contextAccessor;
             _passwordHasher = passwordHasher;
+            _logger = logger;
         }
 
         public async Task<CommunityDto> GetByIdAsync(int id)
@@ -104,9 +106,31 @@ namespace StarterApi.Repositories
 
         public async Task<Community> UpdateAsync(Community community)
         {
-            _contextAccessor.TenantDbContext.Entry(community).State = EntityState.Modified;
-            await _contextAccessor.TenantDbContext.SaveChangesAsync();
-            return community;
+            try
+            {
+                var existingCommunity = await _contextAccessor.TenantDbContext.Communities
+                    .FirstOrDefaultAsync(c => c.Id == community.Id);
+
+                if (existingCommunity == null)
+                {
+                    return null;
+                }
+
+                // Update only the specific properties
+                existingCommunity.Name = community.Name;
+                existingCommunity.Address = community.Address;
+                existingCommunity.ModifiedAt = community.ModifiedAt;
+                existingCommunity.ModifiedBy = community.ModifiedBy;
+                existingCommunity.Version = community.Version;
+
+                await _contextAccessor.TenantDbContext.SaveChangesAsync();
+                return existingCommunity;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating community {Id}", community.Id);
+                throw;
+            }
         }
 
         public async Task DeleteAsync(int id)

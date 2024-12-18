@@ -60,8 +60,7 @@ namespace StarterApi.Controllers
                 return Unauthorized("User ID not found in token");
             }
 
-            facilityDto.CreatedBy = userId;
-            facilityDto.ModifiedBy = userId;
+         
 
             var createdFacility = await _facilityRepository.CreateAsync(facilityDto);
             return CreatedAtAction(nameof(GetFacility), new { id = createdFacility.Id }, createdFacility);
@@ -78,7 +77,7 @@ namespace StarterApi.Controllers
                 return Unauthorized("User ID not found in token");
             }
 
-            facilityDto.ModifiedBy = userId;
+            //facilityDto.ModifiedBy = userId;
 
             var updatedFacility = await _facilityRepository.UpdateAsync(id, facilityDto);
             if (updatedFacility == null)

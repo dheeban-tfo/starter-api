@@ -2,7 +2,7 @@
 
 namespace starterapi;
 
-public class CommunityDto
+public class CommunityDto 
 {
     public int Id { get; set; }
     public string Name { get; set; }
@@ -98,4 +98,11 @@ public class CommunityImportDto
     public DateTime OwnershipStartDate { get; set; }  
     public DateTime? OwnershipEndDate { get; set; }
     public decimal OwnershipPercentage { get; set; }
+}
+
+public class UpdateCommunityDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string Address { get; set; }
 }
