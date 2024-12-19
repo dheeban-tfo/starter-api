@@ -2,6 +2,8 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using starterapi;
+using starterapi.Modules;
+using starterapi.Modules.Extensions;
 using StarterApi.Models;
 using StarterApi.Repositories;
 using System.Security.Claims;

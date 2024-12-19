@@ -7,6 +7,9 @@ using starterapi.Repositories;
 using starterapi.Services;
 using StarterApi.Helpers;
 using Microsoft.AspNetCore.Identity;
+using StarterApi.Models.Communities;
+using StarterApi.DTOs;
+
 
 namespace StarterApi.Repositories
 {

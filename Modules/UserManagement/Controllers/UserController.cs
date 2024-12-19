@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using starterapi.Modules;
+using starterapi.Modules.Extensions;
 using starterapi.Services;
 
 namespace starterapi;

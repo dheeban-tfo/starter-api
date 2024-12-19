@@ -4,6 +4,7 @@ using starterapi.Services;
 using StarterApi.Models;
 using starterapi.Extensions;
 using starterapi.Repositories;
+using StarterApi.Models.Communities;
 
 namespace StarterApi.Repositories
 {

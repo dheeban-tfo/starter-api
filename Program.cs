@@ -28,6 +28,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Identity;
 using StarterApi.Helpers;
 using Hangfire.Storage;
+using Modules.Community.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -215,6 +216,8 @@ builder.Services.AddScoped<IStorageService, AzureBlobStorageService>();
 builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<IFileRepository, FileRepository>();
 
+builder.Services.AddScoped<IUnitService, UnitService>();
+
 // ... rest of your configuration ...
 
 // Add HttpContextAccessor
@@ -376,6 +379,8 @@ builder
         options.JsonSerializerOptions.WriteIndented = true;
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });
+
+builder.Services.AddScoped<IFloorService, FloorService>();
 
 var app = builder.Build();
 

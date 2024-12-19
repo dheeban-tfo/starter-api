@@ -1,9 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using starterapi.Models;
 using starterapi.Services;
-using StarterApi.Models;
 using starterapi.Extensions;
 using starterapi.Repositories;
+using StarterApi.Models.Communities;
+using StarterApi.Helpers;
 
 namespace StarterApi.Repositories
 {
@@ -56,6 +57,10 @@ namespace StarterApi.Repositories
 
         public async Task<Block> CreateAsync(Block block)
         {
+            block.CreatedAt = DateTime.UtcNow;
+            block.CreatedBy = UserContext.CurrentUserId;
+            block.IsActive = true;
+        
             _contextAccessor.TenantDbContext.Blocks.Add(block);
             await _contextAccessor.TenantDbContext.SaveChangesAsync();
             return block;
@@ -63,6 +68,9 @@ namespace StarterApi.Repositories
 
         public async Task<Block> UpdateAsync(Block block)
         {
+            block.ModifiedAt = DateTime.UtcNow;
+            block.ModifiedBy = UserContext.CurrentUserId;
+            block.IsActive = true;
             _contextAccessor.TenantDbContext.Entry(block).State = EntityState.Modified;
             await _contextAccessor.TenantDbContext.SaveChangesAsync();
             return block;

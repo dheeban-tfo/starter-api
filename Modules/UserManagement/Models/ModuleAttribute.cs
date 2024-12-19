@@ -1,6 +1,6 @@
 ﻿
 
-namespace starterapi;
+namespace starterapi.Modules.Extensions;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false)]
 public class ModuleAttribute : Attribute

@@ -1,4 +1,6 @@
-﻿namespace starterapi;
+﻿using starterapi.Modules;
+
+namespace starterapi;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class ModulePermissionAttribute : Attribute

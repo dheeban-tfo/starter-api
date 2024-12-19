@@ -1,5 +1,6 @@
-﻿using StarterApi.Models;
+using StarterApi.Models;
 using starterapi.Models;
+using StarterApi.Models.Communities;
 
 namespace StarterApi.Repositories
 {

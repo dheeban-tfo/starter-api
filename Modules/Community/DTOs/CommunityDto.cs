@@ -1,4 +1,6 @@
-﻿using StarterApi.Models;
+﻿using StarterApi.DTOs;
+using StarterApi.Models;
+using StarterApi.Models.Communities;
 
 namespace starterapi;
 
@@ -33,11 +35,7 @@ public class CommunityFullDto
     public List<BlockFullDto> Blocks { get; set; }
 }
 
-public class BlockDto
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-}
+
 
 public class BlockWithFloorsDto : BlockDto
 {
@@ -49,23 +47,14 @@ public class BlockFullDto : BlockDto
     public List<FloorFullDto> Floors { get; set; }
 }
 
-public class FloorDto
-{
-    public int Id { get; set; }
-    public int FloorNumber { get; set; }
-}
+
 
 public class FloorFullDto : FloorDto
 {
     public List<UnitDto> Units { get; set; }
 }
 
-public class UnitDto
-{
-    public int Id { get; set; }
-    public string UnitNumber { get; set; }
-    public UnitType Type { get; set; }
-}
+
 
 public class CommunityStatisticsDto
 {

@@ -1,4 +1,5 @@
 using StarterApi.Models;
+using StarterApi.Models.Communities;
 
 public class CommunityImportDto
 {

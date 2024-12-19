@@ -1,4 +1,5 @@
 using starterapi;
+using StarterApi.Models.Communities;
 
 namespace StarterApi.Models
 {

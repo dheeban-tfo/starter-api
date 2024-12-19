@@ -7,11 +7,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using starterapi;
-using StarterApi.Helpers;
 using starterapi.Models;
-using StarterApi.Models;
 using StarterApi.Repositories;
 using System.ComponentModel.DataAnnotations;
+using starterapi.Modules.Extensions;
+using starterapi.Modules;
+using StarterApi.Models.Communities;
 
 namespace StarterApi.Controllers
 {
@@ -404,8 +405,8 @@ namespace StarterApi.Controllers
         }
 
         [HttpGet("{id}/files/{fileId}/download")]
-[Authorize]
-[Permission(nameof(ModuleActions.CommunityManagement.Read))]
+        [Authorize]
+        [Permission(nameof(ModuleActions.CommunityManagement.Read))]
 
         public async Task<IActionResult> DownloadCommunityFile(int id, int fileId)
         {

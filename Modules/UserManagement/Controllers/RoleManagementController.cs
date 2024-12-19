@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using starterapi.DTOs;
+using starterapi.Modules;
 using starterapi.Services;
 
 namespace starterapi.Controllers

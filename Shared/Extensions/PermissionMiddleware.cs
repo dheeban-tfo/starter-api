@@ -1,5 +1,6 @@
 ﻿using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using starterapi.Modules.Extensions;
 
 namespace starterapi;
 

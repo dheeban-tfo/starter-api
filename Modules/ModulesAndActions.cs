@@ -1,4 +1,4 @@
-﻿namespace starterapi;
+﻿namespace starterapi.Modules;
 
 public enum ModuleName
 {

@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using starterapi.Models;
 using StarterApi.Models;
 using starterapi.Services;
+using StarterApi.Models.Communities;
 
 namespace starterapi;
 

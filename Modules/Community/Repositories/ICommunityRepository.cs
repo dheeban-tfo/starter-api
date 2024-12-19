@@ -1,6 +1,7 @@
 ﻿using starterapi;
 using starterapi.Models;
 using StarterApi.Models;
+using StarterApi.Models.Communities;
 
 namespace StarterApi.Repositories
 {

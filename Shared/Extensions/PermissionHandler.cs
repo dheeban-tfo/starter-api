@@ -2,6 +2,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using starterapi.Modules;
+using starterapi.Modules.Extensions;
 using starterapi.Services;
 using StarterApi.Helpers;
 

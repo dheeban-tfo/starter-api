@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using starterapi;
 
-namespace StarterApi.Models
+namespace StarterApi.Models.Communities
 {
     public class Community : BaseEntity
     {
